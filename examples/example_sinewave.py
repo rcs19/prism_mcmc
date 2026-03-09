@@ -34,7 +34,7 @@ count = np.convolve(np.ones_like(ydata), np.ones(window), mode='same')
 count = np.maximum(count,2.)
 ydata_sigma = np.sqrt(std2/(count-1))
 
-# Log-prior probability for MCMC `emcee`
+# Log-likelihood probability for MCMC `emcee`
 def lnprob(params, xdata, ydata, ysigma):
     amp = params["amp"]
     period = params["period"]
