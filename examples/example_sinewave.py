@@ -51,7 +51,8 @@ params.add_many(("amp", 45, True, 30, 50),
                  ("period", 28, True, 10, 40),
                  ("d", dguess, True, dmin, dmax))
 mcmc_minimizer = Minimizer(lnprob, params, fcn_args=(xdata, ydata, ydata_sigma), nan_policy='omit')
-mcmc_result = mcmc_minimizer.emcee(steps=300, burn = 0, nwalkers=100, float_behavior="posterior", seed=0)
+nwalkers = 10
+mcmc_result = mcmc_minimizer.emcee(steps=150, burn = 100, nwalkers=nwalkers, float_behavior="posterior", seed=0)
 
 # compute the fitted model from the best-fit parameters
 best_a = mcmc_result.params['amp'].value
@@ -64,27 +65,43 @@ report_fit(mcmc_result)
 corner_plot = corner.corner(mcmc_result.flatchain, labels=mcmc_result.var_names,
                            truths=list(mcmc_result.params.valuesdict().values()))
 
-if True:
-    fig, axes = plt.subplots(3, figsize=(10, 7), sharex=True)
-    samples = mcmc_result.flatchain
-    labels = ["amp", "period", "d"]
-    stepnumber = np.arange(len(samples))/100
-    for i, param in enumerate(samples):
-        ax = axes[i]
-        ax.plot(stepnumber,samples[param], lw=0.1)
-        # ax.set_xlim(0, len(samples))
-        ax.set_ylabel(labels[i])
-        ax.yaxis.set_label_coords(-0.1, 0.5)
+# Plot the MCMC chains for each parameter
+fig, axes = plt.subplots(3, figsize=(10, 7), sharex=True)
+samples = mcmc_result.flatchain
+labels = ["amp", "period", "d"]
+stepnumber = np.arange(len(samples))/nwalkers
+for i, param in enumerate(params):
+    ax = axes[i]
+    ax.plot(stepnumber,samples[param], lw=0.1)
+    # ax.set_xlim(0, len(samples))
+    ax.set_ylabel(labels[i])
+    ax.yaxis.set_label_coords(-0.1, 0.5)
+axes[-1].set_xlabel("step number")
 
-    axes[-1].set_xlabel("step number")
+# Get samples within 1 sigma of the best-fit parameters
+for param in params:
+    result = mcmc_result.params[param].value
+    stderr = mcmc_result.params[param].stderr
+    print(f"{param}: {result:.2f} +/- {stderr:.2f}")
+    lower_bound = result - stderr
+    upper_bound = result + stderr
+    samples_filtered = samples[(samples[param] > lower_bound) & (samples[param] < upper_bound)]
+
+y_models = []
+for i, row in samples_filtered.iterrows():
+    y_model_i = row["amp"] * np.sin(2*np.pi*xdata/row["period"])  - row["d"]
+    y_models.append(y_model_i)
+y_models = np.array(y_models)
 
 # Plot
 fig, ax = plt.subplots()
-ax.plot(xdata, ydata, '+', )
-ax.plot(xdata, ydata_clean, label=f"Underlying function (hidden), A={a:.1f}, P={p:.1f}", color="black", ls="--", alpha=0.9)
-ax.plot(xdata, fitted_model, label=f"Maximum Likelihood, A={best_a:.1f} ± {mcmc_result.params['amp'].stderr:.2g}, P={best_p:.2f} ± {mcmc_result.params['period'].stderr:.2g}", color="red")
-# ax.plot(xdata, y_models.T, color="orange", alpha=0.01)
-ax.fill_between(xdata,ydata-ydata_sigma,ydata+ydata_sigma, color="black", alpha=0.1)
+ax.plot(xdata, ydata, '+', color="black", alpha=0.7)
+ax.plot(xdata, ydata_clean, label=f"Underlying function (hidden), A={a:.1f}, P={p:.1f}, d={np.log10(d):.0f}", color="black", ls="--", alpha=0.9)
+ax.plot(xdata, y_models.T[:,::3], color="orange", alpha=0.01)
+ax.plot(xdata, fitted_model, label=f"Maximum Likelihood, A={best_a:.1f} ± {mcmc_result.params['amp'].stderr:.2g}, P={best_p:.2f} ± {mcmc_result.params['period'].stderr:.2g}, d = {best_d:.2e} ± {mcmc_result.params['d'].stderr:.1f}", color="#0059ff")
+ax.fill_between(xdata,ydata-ydata_sigma,ydata+ydata_sigma, color="black", alpha=0.05)
+ax.legend()
+plt.show()
 
 ax.legend()
 plt.show()
