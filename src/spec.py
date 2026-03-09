@@ -1,0 +1,141 @@
+import numpy as np
+import pandas as pd
+import copy
+from scipy.signal import butter, filtfilt
+from scipy.interpolate import interp1d
+
+def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[]):
+    """
+    Find a continuum by masking emission lines and filtering/smoothing the remaining spectrum.
+    1. Mask specified ranges/emission lines. The data is replaced with a straight line (line joining median intensity around mask start and end).
+    2. A butterworth filter is applied to smooth the data.
+
+    Parameters
+    ----------
+    xdata : array-like
+        The x-coordinates, energy.
+    ydata : array-like
+        The y-coordinates, intensity.
+    cutoff : int
+        The cutoff frequency for the Butterworth filter.
+    multiplier : float
+        Multiplier to adjust amplitude of computed continuum.
+    masks : list of tuples, optional
+        List of tuples specifying ranges to mask (e.g., [(start1, end1), (start2, end2)]).
+    
+    Returns
+    -------
+    y_continuum : array-like
+        The computed continuum.
+
+    """
+    # Interpolate x-grid to ensure even spacing
+    xinterp = np.linspace(xdata.min(), xdata.max(), len(xdata)*5) # oversample
+    yinterp = np.interp(xinterp, xdata, ydata)
+
+    # Replace masked regions with a straight line. Use the median of the data around the mask start and end.
+    median_width = 10  # Number of points to consider for median calculation around the mask edges
+    for start, end in masks:
+        mask_indices = (xinterp >= start) & (xinterp <= end)
+        if np.any(mask_indices):
+            # Get the indices before and after the mask
+            before_mask = np.where(xinterp < start)[0] # Indices before the mask. before_mask[-1] is the index of the starting edge of the mask.
+            after_mask = np.where(xinterp > end)[0]    # Indices after the mask. after_mask[0] is the index of the ending edge of the mask.
+            if before_mask.size > 0 and after_mask.size > 0:
+                # Use the median of the data around the mask start and end
+                y_start = np.median(yinterp[before_mask[-1] - median_width:before_mask[-1] + median_width]) if before_mask.size > median_width else yinterp[before_mask[-1]]
+                y_end = np.median(yinterp[after_mask[0] - median_width:after_mask[0] + median_width]) if after_mask.size > median_width else yinterp[after_mask[0]]
+                yinterp[mask_indices] = np.linspace(y_start, y_end, np.sum(mask_indices)) # np.sum(mask_indices) gives the length of the masked region (i.e. np.sum([False, False, True, True, False]) == 2)
+
+    # Butterworth filter (lowpass smoothing filter)
+    N = len(yinterp)
+    order = 2
+    cutoff = 2.0 * cutoff / N                   # Cutoff frequency 
+    b, a = butter(order, cutoff, btype='low',)  # scipy.signal.butter returns the filter coefficients b and a
+    yinterp = filtfilt(b, a, yinterp)             # Apply the filter to the data    
+    yinterp = yinterp * multiplier                # Adjust the amplitude of the computed continuum
+
+    # Interpolate back to original x-grid
+    return np.interp(xdata, xinterp, yinterp)
+
+def gaussian_broadening(xdata, ydata, R):
+    """
+    Apply Gaussian broadening with constant spectral resolving power 
+    R = E / DeltaE to data defined on a non-uniform energy grid xdata.
+    Returns the broadened ydata on the original xdata grid.
+    
+    Parameters
+    ----------
+    xdata : array-like
+        Original energy grid (non-uniform)
+    ydata : array-like
+        Original intensity data
+    R : float
+        Spectral resolving power (R = E / DeltaE)
+    
+    Returns
+    -------
+    y_broadened : array-like
+        Broadened intensity data on the original xdata grid
+    """
+    # Step 1: Convert to log-energy space
+    logE = np.log(xdata)
+
+    # Step 2: Interpolate to a uniform grid in log-space
+    logE_uniform = np.linspace(np.min(logE), np.max(logE), len(xdata)*4)
+    interp = interp1d(logE, ydata, kind='linear', fill_value='extrapolate')
+    y_uniform = interp(logE_uniform)
+
+    # Step 3: Compute Gaussian sigma (constant in log-space)
+    # For a Gaussian, FWHM = 2*sqrt(2*ln(2))*sigma
+    # Here, FWHM (in logE) = ln(1 + 1/R) ≈ 1/R for large R
+    FWHM_logE = np.log(1 + 1/R)
+    sigma_logE = FWHM_logE / (2 * np.sqrt(2 * np.log(2)))
+
+    # Step 4: Convert sigma_logE to number of grid points
+    dlogE = np.mean(np.diff(logE_uniform))
+    sigma_points = sigma_logE / dlogE
+
+    # Step 5: Convolve in log-space
+    y_broadened_uniform = gaussian_filter1d(y_uniform, sigma_points)
+
+    # Step 6: Interpolate back to original (non-uniform) energy grid
+    interp_back = interp1d(logE_uniform, y_broadened_uniform, kind='linear', fill_value='extrapolate')
+    y_broadened = interp_back(np.log(xdata))
+    return y_broadened
+
+def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
+    """
+    Generate an xdata array for ydata and ydata sigma.
+    """
+    # If reference points are provided, use this to calibrate the xdata. Otherwise, show an interactive plot of the spectrum and ask user to click on the given reference points to calibrate the xdata. If there are no reference points gien, print a warning and return the original xdata as an array of indices.
+
+    # Use linear interpolation/extrapolation to find xdata values that fit on the reference points
+    if ref_idx is not None and ref_eV is not None and ydata is not None:
+        f = interp1d(ref_idx, ref_eV, fill_value="extrapolate")
+        xdata = f(np.arange(len(ydata)))
+        # fig, ax = plt.subplots()
+        # ax.plot(np.arange(len(ydata)), xdata, label="Calibration")
+        return xdata
+    elif ydata is not None:
+        fig, ax = plt.subplots()
+        ax.plot(np.arange(len(ydata)), ydata, label="Spectrum")
+        ax.set_title("Click on reference points in order:\n[" + ", ".join([f"{eV}" for eV in ref_eV]) + "] eV")
+        def onclick(event):
+            if event.xdata is not None:
+                clicked_idx.append(event.xdata)
+                ax.plot(event.xdata, event.ydata, marker="x", color="red")
+                # draw idle
+                fig.canvas.draw_idle()
+                if len(clicked_idx) == len(ref_eV):
+                    print("[" + ", ".join([f"{i:.2f}" for i in clicked_idx]) + "]")
+                    plt.close()
+        clicked_idx = []
+        fig.canvas.mpl_connect('button_press_event', onclick)
+        plt.show()
+        f = interp1d(clicked_idx, ref_eV, fill_value="extrapolate")
+        xdata = f(np.arange(len(ydata)))
+        return xdata
+    else:
+        print("Please provide ydata and reference points eV for calibration. Returning original xdata as indices.")
+        return np.arange(len(ydata))

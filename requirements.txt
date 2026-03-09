@@ -1,0 +1,6 @@
+numpy
+pathlib
+matplotlib
+corner
+lmfit
+emcee
