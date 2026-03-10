@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import corner
 import emcee
 
@@ -7,6 +8,7 @@ from matplotlib import pyplot as plt
 from lmfit import minimize, Parameters, Minimizer, report_fit
 
 from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x
+from src.lineratio import get_te_ne
 
 if __name__ == "__main__":
 
@@ -21,4 +23,12 @@ if __name__ == "__main__":
     data_exp[0]    = calibrate_x(data_exp[1], ref_eV=[3683,3934,4150], ref_idx=[143.5, 252.41, 332.65]) # 98252 t4 f3
     data_exp_cropped = data_exp[(data_exp[0]>data_crop[0]) & (data_exp[0]<data_crop[1])].reset_index(drop=True)
 
-    # 2. Perform Lineratio Analysis to obtain initial guess for T_c and n_c
+    # 2a. Lineratio Analysis for initial T_c and n_c (core electron temperature and density)
+    ysubtr = data_exp_cropped[1] - continuum_butterworth(data_exp_cropped[0], data_exp_cropped[1])
+    tc, nc = get_te_ne(data_exp_cropped[0], ysubtr, plot=False)
+
+    # 2b. Use rad-hydro for initial n_s and rhoR 
+    rho = 25    # g/cm3
+    rhoR = 0.09  # g/cm2
+
+    
