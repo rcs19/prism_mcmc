@@ -64,7 +64,7 @@ def get_fwhm_and_area(*popt, pcov, R = None, verbose=False):
 
     return fwhm, fwhm_err, area, area_err
 
-def fit_to_spectrum(xdata, ydata, fitting_region=(3450, 4100), sat_masks=[(3550,3660), (3790,3905)], plot=False):
+def get_te_ne(xdata, ydata, fitting_region=(3450, 4100), sat_masks=[(3550,3660), (3790,3905)], plot=False, round=True):
     """
     Fit two Gaussians centred on He-beta (3680 eV) and Ly-beta (3935 eV) lines, masking satellite regions. 
     Returns electron temperature (assuming n_e = 1e24 cm-3) and density (assuming T_e = 1000 eV) from lookup tables (Keane 1993, Gu 2020). 
@@ -169,7 +169,10 @@ def fit_to_spectrum(xdata, ydata, fitting_region=(3450, 4100), sat_masks=[(3550,
 
     print(f"Ratio = {ratio:.2f} ± {ratio_err:.2f}, Lybeta LW = {lyb_lw:.2f} ± {lyb_lw_err:.2f}\nT = {temp:.0f} eV, n_e = {dens:.2e} cm^-3")
 
-    return temp, dens
+    if round:
+        return np.round(temp, decimals=0), np.round(dens*1e-24, decimals=2)*1e24
+    else:
+        return temp, dens
 
 if __name__ == "__main__":
     from spec import continuum_butterworth, calibrate_x
@@ -186,5 +189,5 @@ if __name__ == "__main__":
     xdata, ydata, ysigma = data_exp_cropped[0], data_exp_cropped[1], data_exp_cropped[2]
     ydata_s = ydata - continuum_butterworth(xdata, ydata, multiplier=1., masks=[(3560,3780),(3790,4055),(4065,4300)])
 
-    fit_to_spectrum(xdata, ydata_s, fitting_region=(3450, 4100), sat_masks=[(3550,3660), (3790,3905)], plot=True)
+    get_te_ne(xdata, ydata_s, fitting_region=(3450, 4100), sat_masks=[(3550,3660), (3790,3905)], plot=True)
     plt.show()
