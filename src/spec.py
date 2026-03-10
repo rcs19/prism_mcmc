@@ -4,7 +4,7 @@ import copy
 from scipy.signal import butter, filtfilt
 from scipy.interpolate import interp1d
 
-def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[]):
+def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[(3560,3780),(3790,4055),(4065,4300)]):
     """
     Find a continuum by masking emission lines and filtering/smoothing the remaining spectrum.
     1. Mask specified ranges/emission lines. The data is replaced with a straight line (line joining median intensity around mask start and end).
