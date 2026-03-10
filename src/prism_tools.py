@@ -66,5 +66,8 @@ def write_psi_planar_shell(ts, ns, rhoR, filepathout="shell_planar_atbase.psi"):
 
     return filepathout
 
+def run_PrismSPECT(psi_filepath, run_name, output_dir, delete_aux=True):
+    subprocess.run(f'PrismSPECT -b -i {psi_filepath} -x', shell=True)
+    
 if __name__ == "__main__":
     write_psi_planar_shell(300,3e24,0.095)
