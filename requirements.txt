@@ -1,5 +1,6 @@
 numpy
 pathlib
+pandas
 matplotlib
 corner
 lmfit
