@@ -194,5 +194,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-data/
 archive/
