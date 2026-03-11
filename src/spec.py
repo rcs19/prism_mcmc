@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 import copy
 from scipy.signal import butter, filtfilt
-from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter1d
+# from scipy.interpolate import interp1d
 
 def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[(3560,3780),(3790,4055),(4065,4300)]):
     """
@@ -63,7 +64,8 @@ def gaussian_broadening(xdata, ydata, R):
     Apply Gaussian broadening with constant spectral resolving power 
     R = E / DeltaE to data defined on a non-uniform energy grid xdata.
     Returns the broadened ydata on the original xdata grid.
-    
+    !!Note I am using numpy.interp instead of scipy.interpolate.interp1d because it is faster. Scipy was originally used to broaden multiple spectra, whereas numpy can only handle one.
+
     Parameters
     ----------
     xdata : array-like
@@ -81,10 +83,11 @@ def gaussian_broadening(xdata, ydata, R):
     # Step 1: Convert to log-energy space
     logE = np.log(xdata)
 
-    # Step 2: Interpolate to a uniform grid in log-space
+    # Step 2: Interpolate to a uniform grid in log-space (oversampling here with len(xdata)*4)
     logE_uniform = np.linspace(np.min(logE), np.max(logE), len(xdata)*4)
-    interp = interp1d(logE, ydata, kind='linear', fill_value='extrapolate')
-    y_uniform = interp(logE_uniform)
+    # interp = interp1d(logE, ydata, kind='linear', fill_value='extrapolate')
+    # y_uniform = interp(logE_uniform)
+    y_uniform = np.interp(logE_uniform, logE, ydata)
 
     # Step 3: Compute Gaussian sigma (constant in log-space)
     # For a Gaussian, FWHM = 2*sqrt(2*ln(2))*sigma
@@ -100,8 +103,9 @@ def gaussian_broadening(xdata, ydata, R):
     y_broadened_uniform = gaussian_filter1d(y_uniform, sigma_points)
 
     # Step 6: Interpolate back to original (non-uniform) energy grid
-    interp_back = interp1d(logE_uniform, y_broadened_uniform, kind='linear', fill_value='extrapolate')
-    y_broadened = interp_back(np.log(xdata))
+    # interp_back = interp1d(logE_uniform, y_broadened_uniform, kind='linear', fill_value='extrapolate')
+    # y_broadened = interp_back(np.log(xdata))
+    y_broadened = np.interp(logE, logE_uniform, y_broadened_uniform)
     return y_broadened
 
 def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
@@ -112,11 +116,11 @@ def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
 
     # Use linear interpolation/extrapolation to find xdata values that fit on the reference points
     if ref_idx is not None and ref_eV is not None and ydata is not None:
-        f = interp1d(ref_idx, ref_eV, fill_value="extrapolate")
-        xdata = f(np.arange(len(ydata)))
-        # fig, ax = plt.subplots()
-        # ax.plot(np.arange(len(ydata)), xdata, label="Calibration")
+        # f = interp1d(ref_idx, ref_eV, fill_value="extrapolate")
+        # xdata = f(np.arange(len(ydata)))
+        xdata = np.interp(np.arange(len(ydata)), ref_idx, ref_eV) 
         return xdata
+        
     elif ydata is not None:
         fig, ax = plt.subplots()
         ax.plot(np.arange(len(ydata)), ydata, label="Spectrum")
@@ -133,8 +137,9 @@ def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
         clicked_idx = []
         fig.canvas.mpl_connect('button_press_event', onclick)
         plt.show()
-        f = interp1d(clicked_idx, ref_eV, fill_value="extrapolate")
-        xdata = f(np.arange(len(ydata)))
+        # f = interp1d(clicked_idx, ref_eV, fill_value="extrapolate")
+        # xdata = f(np.arange(len(ydata)))
+        xdata = np.interp(np.arange(len(ydata)), clicked_idx, ref_eV)
         return xdata
     else:
         print("Please provide ydata and reference points eV for calibration. Returning original xdata as indices.")
