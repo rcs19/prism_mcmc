@@ -100,7 +100,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, delete_prism=False, verbose=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overwrite=True, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
@@ -129,6 +129,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, delet
         Directory to save output files. If None, defaults to "data/".
     run_name: str, default = None
         Name for output files and output folder. If None, defaults to a timestamp "yyyymmdd_HHMMSS".
+    overwrite: bool, default = False
+        If False, checks if "directory / run_name_eid.txt" exists and reuses it. Otherwise, re-run PrismSPECT simulations. If True, PrismSPECT will run anyway. !Caution! The reused output may not correspond to the given input, so only use if certain. 
     delete_prism: bool, default = False
         If True, deletes the output folder containing PrismSPECT results after extracting the emergent intensity distribution. 
     verbose: bool, default = False
@@ -145,6 +147,14 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, delet
     if run_name is None:
         run_name = datetime.now().strftime(r"%Y%m%d_%H%M%S")
     directory = Path(directory)
+
+    if not overwrite:
+        # Check if directory / run_name_eid.txt exists
+        if (directory / f"{run_name}_eid.txt").exists():
+            if verbose:
+                print(f"{directory / run_name}_eid.txt exists - reusing...")
+            return np.loadtxt(directory / f"{run_name}_eid.txt")
+
     rundirectory = directory / run_name
     rundirectory.mkdir(parents=True, exist_ok=True)
 
@@ -177,7 +187,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, delet
 	
     # Save emergent intensity distribution to file
     eid = np.array([nu_core, eid_y]).T
-    np.savetxt(directory / f"{run_name}.txt", eid)
+    np.savetxt(directory / f"{run_name_eid}.txt", eid)
 
     if delete_prism:
         subprocess.run(f'rm -r {directory}/{run_name}', shell=True)
@@ -197,4 +207,4 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, delet
     return eid
 
 if __name__ == "__main__":
-    eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", delete_prism=True, verbose=False)
+    eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", overwrite=False, delete_prism=True, verbose=False)
