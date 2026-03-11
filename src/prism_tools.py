@@ -204,7 +204,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
         ax[1].legend()
         plt.show()
 
-    return eid
+    return eid[0], eid[1]
 
 if __name__ == "__main__":
     eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", overwrite=False, delete_prism=True, verbose=False)
