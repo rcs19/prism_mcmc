@@ -3,7 +3,7 @@ import pandas as pd
 import copy
 from scipy.signal import butter, filtfilt
 from scipy.ndimage import gaussian_filter1d
-# from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d
 
 def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[(3560,3780),(3790,4055),(4065,4300)]):
     """
@@ -116,9 +116,8 @@ def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
 
     # Use linear interpolation/extrapolation to find xdata values that fit on the reference points
     if ref_idx is not None and ref_eV is not None and ydata is not None:
-        # f = interp1d(ref_idx, ref_eV, fill_value="extrapolate")
-        # xdata = f(np.arange(len(ydata)))
-        xdata = np.interp(np.arange(len(ydata)), ref_idx, ref_eV) 
+        f = interp1d(ref_idx, ref_eV, fill_value="extrapolate")
+        xdata = f(np.arange(len(ydata)))
         return xdata
         
     elif ydata is not None:
@@ -137,9 +136,8 @@ def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
         clicked_idx = []
         fig.canvas.mpl_connect('button_press_event', onclick)
         plt.show()
-        # f = interp1d(clicked_idx, ref_eV, fill_value="extrapolate")
-        # xdata = f(np.arange(len(ydata)))
-        xdata = np.interp(np.arange(len(ydata)), clicked_idx, ref_eV)
+        f = interp1d(clicked_idx, ref_eV, fill_value="extrapolate")
+        xdata = f(np.arange(len(ydata)))
         return xdata
     else:
         print("Please provide ydata and reference points eV for calibration. Returning original xdata as indices.")
