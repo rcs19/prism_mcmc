@@ -9,7 +9,6 @@ import subprocess
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from matplotlib import pyplot as plt
 
 def write_psi_spherical_core(tc, nc, rc, filepathoutpsi="core_spherical_atbase.psi"):
     """
@@ -18,54 +17,68 @@ def write_psi_spherical_core(tc, nc, rc, filepathoutpsi="core_spherical_atbase.p
     Parameters:
     -----------
     tc: float
-        Plasma temperature in eV
+        Electron temperature in eV
     nc: float
-        Plasma density in cm^-3
+        Electron density in cm^-3
     rc: float
-        Plasma size (radius) in cm
-    filepathoutpsi: str or Path
+        Plasma size (radius) in cm 
+    template_psi: str or Path
+        Path to the template .psi file to use. Default is "data/templates/core_spherical_atbase.psi".
+    out_psi: str or Path
         Path to write the new .psi file to. Default is "core_spherical_atbase.psi" in the current working directory.
+
+    Returns:
+    --------
+    out_psi: str or Path
+        Path to the new .psi file that was written.
     """
-    with open('data/templates/core_spherical_atbase.psi','r') as f:
+    with open(template_psi,"r") as f:
         temppsi = json.load(f)
     newpsi = temppsi
     newpsi["Steady-state plasma params"]["Plasma temperature"] = tc
     newpsi["Steady-state plasma params"]["Plasma density"] = nc
     newpsi["Steady-state plasma params"]["Plasma size"] = rc
 
-    with open(filepathoutpsi,'w') as f:
+    with open(out_psi,'w') as f:
         json.dump(newpsi, f, indent=4)
 
-    return filepathoutpsi
+    return out_psi
 
-def write_psi_planar_shell(ts, ns, rhoR, filepathoutpsi="shell_planar_atbase.psi"):
+def write_psi_planar_shell(ts, ns, rhoR, template_psi="data/templates/shell_planar_atbase_rhoR.psi", out_psi="shell_planar_atbase.psi"):
     """
     Write a new PrismSPECT input deck .psi for a planar shell plasma with the given temperature, mass density and areal density rhoR.
     
     Parameters:
     -----------
     ts: float
-        Plasma temperature in eV
+        Electron temperature in eV
     ns: float
-        Plasma density in g cm^-3
+        Mass density in g cm^-3
     rhoR: float
-        Plasma areal density in g cm^-2
-    filepathoutpsi: str or Path
+        Areal density in g cm^-2
+    template_psi: str or Path
+        Path to the template .psi file to use. Default is "data/templates/shell_planar_atbase_rhoR.psi".
+    out_psi: str or Path
         Path to write the new .psi file to. Default is "shell_planar_atbase.psi" in the current working directory.
+
+    Returns:
+    --------
+    out_psi: str or Path
+        Path to the new .psi file that was written.
     """
-    with open('data/templates/shell_planar_atbase_rhoR.psi','r') as f:
+    with open(template_psi,"r") as f:
         temppsi = json.load(f) # note in line 39 "Size specification ID" = 0 for thickness l and = 1 for areal density rhoL
     newpsi = temppsi
     newpsi["Steady-state plasma params"]["Plasma temperature"] = ts
     newpsi["Steady-state plasma params"]["Plasma density"] = ns
     newpsi["Steady-state plasma params"]["Plasma size"] = rhoR
 
-    with open(filepathoutpsi,'w') as f:
+    with open(out_psi,'w') as f:
         json.dump(newpsi, f, indent=4)
 
-    return filepathoutpsi
+    return out_psi
 
-def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True):
+def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True, verbose=False):
     """
     Run PrismSPECT with the given input deck .psi file, and optionally delete auxiliary files to save space.
     The output folder containing results files is placed in the same folder as the input deck (-d {output_dir} does not work).
@@ -80,6 +93,13 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True)
         Overwrite existing output of the same name
     delete_aux : bool, default = True
         Delete auxiliary files runname.etd .log .psc lineprof.dat popul.pop transpwr.dat. Leaves behind only runname.psr and results/spect.ppd 
+    verbose : bool, default = False
+        If True, print detailed information about the simulation process.
+
+    Returns
+    -------
+    output_dir : Path
+        Path to the directory containing the PrismSPECT output files (runname.psr and results/spect.ppd)
     """
     psi_filepath = Path(psi_filepath)
 
@@ -91,11 +111,15 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True)
     #     run_command = run_command + f" -d {output_dir}" # !! doesn't work - "Run directory could not be created. Check permissions or see if directory is in use."
     if overwrite:
         run_command = run_command + " -x"
-
-    # Run PrismSPECT simulation
-    subprocess.run(run_command, shell=True)
+    
+    # Run PrismSPECT simulation with hidden outputs (stdout and stderr)
+    if verbose:
+        subprocess.run(run_command, shell=True)
+    else:
+        subprocess.run(run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     output_dir = (psi_filepath.parent / run_name) if run_name is not None else (psi_filepath.parent)
+
     if delete_aux: # Deletes /runname.etd, /runname.log, /results/lineprof.dat, /results/popul.pop, /results/transpwr.dat    
         delete_command = f'find {output_dir}'+ r' -type f \( -name "*.etd" -o -name "*.log" -o -name "*.dat" -o -name "*.pop" \) -delete'
         subprocess.run(delete_command, shell=True)
@@ -103,7 +127,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True)
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, runname=None, delete_prism=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, runname=None, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
@@ -113,26 +137,56 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, runname=None, delete
     
     Calculates and returns the emergent intensity distribution f(nu) = I_core(nu)*T_shell(nu) + I_shell(nu).
     The emergent intensity distribution can be broadened using a gaussian broadening function with R = E/dE, if necessary.  
+
+    Parameters
+    ----------
+    tc: float
+        Electron temperature in eV
+    nc: float
+        Electron density in cm^-3
+    rc: float
+        Plasma size (radius) in cm
+    ts: float
+        Electron temperature in eV
+    ns: float
+        Mass density in g cm^-3
+    rhoR: float
+        Areal density in g cm^-2
+    directory: str or Path, default = None
+        Directory to save output files. If None, defaults to "data/".
+    runname: str, default = None
+        Name for output files and output folder. If None, defaults to a timestamp "yyyymmdd_HHMMSS".
+    delete_prism: bool, default = False
+        If True, deletes the output folder containing PrismSPECT results after extracting the emergent intensity distribution. 
+    verbose: bool, default = False
+        Prints statements from this script and also PrismSPECT outputs.
+
+    Returns
+    -------
+    eid: 2D array
+        Emergent intensity distribution of attenuated core emissions + shell self emission. A 2D array with columns [nu, f(nu)]
     """
 
     if directory is None:
         directory = "data/"
     if runname is None:
-        runname = datetime.now().strftime("%Y%m%d_%H%M%S")
-    rundirectory = Path(directory) / runname
+        runname = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+    directory = Path(directory)
+    rundirectory = directory / runname
     rundirectory.mkdir(parents=True, exist_ok=True)
 
-    psi_core_path = write_psi_spherical_core(tc, nc, rc, filepathoutpsi=rundirectory / "temp_core.psi")
-    psi_shell_path = write_psi_planar_shell(ts, ns, rhoR, filepathoutpsi=rundirectory / "temp_shell.psi")
+    # Generate temporary PrismSPECT input deck .psi for core and shell.
+    psi_core_path = write_psi_spherical_core(tc, nc, rc, out_psi=rundirectory / "temp_core.psi")
+    psi_shell_path = write_psi_planar_shell(ts, ns, rhoR, out_psi=rundirectory / "temp_shell.psi")
 
     # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files are:
     # outputfolder/runname/runname.psc - copy of input deck
     # outputfolder/runname/runname.psr - main results file
     # outputfolder/runname/results/spect.ppd - output spectra 
-    print("Running core! {psi_core_path}")
-    core_path = run_PrismSPECT(psi_core_path, run_name="core", overwrite=True, delete_aux=True)
-    print(f"Running shell! {psi_shell_path}")
-    shell_path = run_PrismSPECT(psi_shell_path, run_name="shell", overwrite=True, delete_aux=True)
+    if verbose:
+        print(f"Running PrismSPECT with params:\ntc={tc}, nc={nc}, rc={rc}, ts={ts}, ns={ns}, rhoR={rhoR}")
+    core_path = run_PrismSPECT(psi_core_path, run_name="temp_core", overwrite=True, delete_aux=True, verbose=verbose)
+    shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
     # Load spectra and transmission from output files spect.ppd
     core_ppd = np.loadtxt(core_path / "results/spect.ppd", comments="#").T
@@ -147,28 +201,27 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, runname=None, delete
 
     # Calculate emergent intensity distribution
     eid_y = I_core * tr_shell_interp + I_shell_interp
-
-    fig, ax = plt.subplots(nrows=2, sharex=True)
-    ax[0].plot(nu_core, I_core, label="Core spec")
-    ax[0].plot(nu_shell, I_shell, label="Shell spec")
-    ax_trans = ax[0].twinx()
-    ax_trans.plot(nu_shell, tr_shell, color="black", ls="--")
-    ax[1].plot(nu_core, eid_y, label="EID")
-    ax[1].plot(nu_shell, I_shell, label="Shell spec")
-    ax[0].legend()
-    ax[1].legend()
-    plt.show()
-
+	
     # Save emergent intensity distribution to file
     eid = np.array([nu_core, eid_y]).T
-    np.savetxt(rundirectory / "eid.txt", eid)
+    np.savetxt(directory / f"{runname}.txt", eid)
 
     if delete_prism:
-        subprocess.run(f'rm -r {rundirectory}/core', shell=True)
-        subprocess.run(f'rm -r {rundirectory}/shell', shell=True)
+        subprocess.run(f'rm -r {directory}/{runname}', shell=True)
+
+    if False:
+        fig, ax = plt.subplots(nrows=2, sharex=True)
+        ax[0].plot(nu_core, I_core, label="Core spec")
+        ax[0].plot(nu_shell, I_shell, label="Shell spec")
+        ax_trans = ax[0].twinx()
+        ax_trans.plot(nu_shell, tr_shell, color="black", ls="--")
+        ax[1].plot(nu_core, eid_y, label="EID")
+        ax[1].plot(nu_shell, I_shell, label="Shell spec")
+        ax[0].legend()
+        ax[1].legend()
+        plt.show()
 
     return eid
 
 if __name__ == "__main__":
-    eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", runname = "sample1")
-    print(eid)
+    eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", runname = "sample1", delete_prism=True)
