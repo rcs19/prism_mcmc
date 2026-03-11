@@ -153,14 +153,15 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
         if (directory / f"{run_name}_eid.txt").exists():
             if verbose:
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
-            return np.loadtxt(directory / f"{run_name}_eid.txt")
+            eid = np.loadtxt(directory / f"{run_name}_eid.txt")
+            return eid[0], eid[1]
 
     rundirectory = directory / run_name
     rundirectory.mkdir(parents=True, exist_ok=True)
 
     # Generate temporary PrismSPECT input deck .psi for core and shell.
-    psi_core_path = write_psi(tc, nc, rc, template_psi="data/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
-    psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
+    psi_core_path = write_psi(tc, nc, rc, template_psi="data/inputs/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
+    psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/inputs/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
     
     # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files are:
     # directory/run_name/run_name.psc - copy of input deck
@@ -187,7 +188,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
 	
     # Save emergent intensity distribution to file
     eid = np.array([nu_core, eid_y]).T
-    np.savetxt(directory / f"{run_name_eid}.txt", eid)
+    np.savetxt(directory / f"{run_name}_eid.txt", eid)
 
     if delete_prism:
         subprocess.run(f'rm -r {directory}/{run_name}', shell=True)
