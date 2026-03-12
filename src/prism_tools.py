@@ -153,7 +153,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
         if (directory / f"{run_name}_eid.txt").exists():
             if verbose:
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
-            eid = np.loadtxt(directory / f"{run_name}_eid.txt")
+            eid = np.loadtxt(directory / f"{run_name}_eid.txt").T
             return eid[0], eid[1]
 
     rundirectory = directory / run_name
@@ -205,7 +205,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
         ax[1].legend()
         plt.show()
 
-    return eid[0], eid[1]
+    return nu_core, eid_y
 
 if __name__ == "__main__":
-    eid = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", overwrite=False, delete_prism=True, verbose=False)
+    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", overwrite=False, delete_prism=True, verbose=False)
