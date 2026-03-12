@@ -40,11 +40,6 @@ ydata_sigma = np.sqrt(std2/(count-1))
 # Setting up MCMC
 # ---------------
 
-params_initial_guess = {'a': 40, 'p': 25, 'd': 24}
-params_bounds = {'a': (30, 50), 'p': (10, 40), 'd': (17, 26)}
-nwalkers = 8
-nsteps = 50
-
 def log_likelihood(params, xdata, ydata, ysigma):
     a, p, d = params
     model = a * np.sin(2*np.pi*xdata/p) - d
@@ -69,11 +64,21 @@ def log_probability(params, xdata, ydata, ysigma):
         return -np.inf
     return lp + log_likelihood(params, xdata, ydata, ysigma)
 
+params_initial_guess = {'a': 40, 'p': 25, 'd': 24}
+params_bounds = {'a': (30, 50), 'p': (10, 40), 'd': (17, 26)}
+nwalkers = 8
+nsteps = 50
+
 # Initial positions of walkers
 pos = np.array([val for val in params_initial_guess.values()]) + 0.1 * np.random.randn(nwalkers, 3) # n walkers, 3 parameters
 nwalkers, ndim = pos.shape
 
-sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ydata_sigma))
+# Saving using HDF Backgend
+filename = "tutorial.h5"
+backend = emcee.backends.HDFBackend(filename)
+backend.reset(nwalkers, ndim)
+
+sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ydata_sigma), backend=backend)
 sampler.run_mcmc(pos, nsteps, progress=True)
 
 # Results
