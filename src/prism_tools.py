@@ -168,7 +168,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
     # directory/run_name/run_name.psr - main results file
     # directory/run_name/results/spect.ppd - output spectra 
     if verbose:
-        print(f"Running PrismSPECT with params:\ntc={tc}, nc={nc}, rc={rc}, ts={ts}, ns={ns}, rhoR={rhoR}")
+        print(f"Running PrismSPECT with params:\ntc={tc:.5f}, nc={nc}, rc={rc}, ts={ts:.5f}, ns={ns}, rhoR={rhoR:.6f}")
     core_path = run_PrismSPECT(psi_core_path, run_name="temp_core", overwrite=True, delete_aux=True, verbose=verbose)
     shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
