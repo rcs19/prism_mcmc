@@ -90,14 +90,15 @@ if __name__ == "__main__":
     fitting_mask   = [(3500,3756), (3810,4400)]
     verbose        = True
     directory      = "data/mcmc_run_kev_multi/"
+    savefile = "mcmc_run.h5"
+
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters
     nwalkers, ndim  = pos.shape
     samplecounter     = 1
 
     # Initialise sampler with HDFBackend to save results to file
-    filename = "mcmc_run.h5"
-    backend  = emcee.backends.HDFBackend(filename)
+    backend  = emcee.backends.HDFBackend(savefile)
     backend.reset(nwalkers, ndim)
 
     with Pool(processes=10) as pool:
