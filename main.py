@@ -84,16 +84,16 @@ if __name__ == "__main__":
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.15, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.09}
-    params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.07, 0.14)}
+    params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.08, 0.16)}
     nwalkers       = 10
-    nsteps         = 150
-    fitting_mask   = [(3500,3756), (3810,4400)]
-    verbose        = True
-    directory      = "data/mcmc_run_kev_multi/"
-    savefile = "mcmc_run.h5"
+    nsteps         = 120
+    fitting_mask   = [(3450,4500)]
+    verbose        = False
+    directory      = "data/mcmc_run_3/"
+    savefile = "mcmc_run_3.h5"
 
     # Initial positions of walkers
-    pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters
+    pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
     nwalkers, ndim  = pos.shape
     samplecounter     = 1
 
@@ -134,45 +134,43 @@ if __name__ == "__main__":
     # Corner plot
     flat_samples = sampler.get_chain(flat=True)
     fig = corner.corner(flat_samples, labels=labels,)
-    plt.show()
 
     # Get values which fall within 1 sigma (68% percentile)
     inds = np.arange(flat_samples.shape[0]) # sample index (for filenames)
+    sigma_bounds = []
     for i in range(ndim):
         result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
         q = np.diff(result_values)
         # print(f"{labels[i]} = ${result_values[1]}_{{{q[0]}}}^{{{q[1]}}}$")
         print(f"{labels[i]} = {result_values[1]:.1f} + {q[0]:.1f} - {q[1]:.1f}")
 
-        # filter flat_samples to only include those within 1 sigma of the median for each parameter
-        #mask = (flat_samples[:, i] > result_values[0]) & (flat_samples[:, i] < result_values[2])
-        #flat_samples = flat_samples[mask]
-        #inds = inds[mask]
+        # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
+        sigma_bounds.append((result_values[0], result_values[2]))
 
     directory = Path(directory)
     fig, ax = plt.subplots()
     for file in directory.rglob("*.txt"):
-        #sampleparams = flat_samples[ind]
-        #sampledata = np.loadtxt(f"{directory}sample{ind+1}_eid.txt").T
-        sampledata = np.loadtxt(file).T
-        xmodel, ymodel = sampledata[0], sampledata[1]
-        # mask ydata and ymodel_interp 
-        ymodel = gaussian_broadening(xmodel, ymodel, R=150)
-        ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel)
+        file_params = file.stem.split("_")[1:] # extract parameters from filename
+        tc_kev, lognc, ts_kev, rhoR = map(float, file_params)
+        if (sigma_bounds[0][0] < tc_kev < sigma_bounds[0][1] and sigma_bounds[1][0] < lognc < sigma_bounds[1][1] and sigma_bounds[2][0] < ts_kev < sigma_bounds[2][1] and sigma_bounds[3][0] < rhoR < sigma_bounds[3][1]):
+            sampledata = np.loadtxt(file).T
+            xmodel, ymodel = sampledata[0], sampledata[1]
+            # mask ydata and ymodel_interp 
+            ymodel = gaussian_broadening(xmodel, ymodel, R=150)
+            ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel)
 
-        if fitting_mask is not None:
-            mask = np.zeros_like(xdata, dtype=bool)
-            for low, high in fitting_mask:
-                mask |= (xdata > low) & (xdata < high)
-            ydata_fit = ydata[mask]
-            ymodel_interp_fit = ymodel_interp[mask]
-            ysigma_fit = ysigma[mask]
+            if fitting_mask is not None:
+                mask = np.zeros_like(xdata, dtype=bool)
+                for low, high in fitting_mask:
+                    mask |= (xdata > low) & (xdata < high)
+                ydata_fit = ydata[mask]
+                ymodel_interp_fit = ymodel_interp[mask]
+                ysigma_fit = ysigma[mask]
 
-        # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
-        res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
-        scalar = res.x
-        ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
-        
+            # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
+            res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
+            scalar = res.x
+            ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
     if fitting_mask is not None:
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)
