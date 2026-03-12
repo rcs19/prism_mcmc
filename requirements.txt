@@ -3,5 +3,7 @@ pathlib
 pandas
 matplotlib
 corner
-lmfit
 emcee
+h5py
+scipy
+tqdm
