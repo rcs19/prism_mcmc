@@ -23,27 +23,21 @@ data_exp_cropped = data_exp[(data_exp[0]>data_crop[0]) & (data_exp[0]<data_crop[
 
 xdata, ydata, ysigma = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
 
-# 2a. Lineratio Analysis for initial T_c and n_c (core electron temperature and density)
-ysubtr = data_exp_cropped[1] - continuum_butterworth(data_exp_cropped[0], data_exp_cropped[1])
-tc, nc = get_te_ne(data_exp_cropped[0], ysubtr, plot=False)
-# 2b. Use rad-hydro for initial n_s and rhoR 
-ts = 300     # eV
-rho = 25     # g/cm3
-rhoR = 0.09  # g/cm2
-
 # Define log-likelihood, log-prior and log-probability functions for MCMC
 
 def reducedchisquared(a, ydata, ymodel, ysigma):
     return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
 
 def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, directory="data/mcmc_run/",  verbose=False):
-    tc, lognc, ts, rhoR = params
+    tc_kev, lognc, ts_kev, rhoR = params
     nc = 10**lognc
-
+    tc = tc_kev * 1e3
+    ts = ts_kev * 1e3
     global samplecounter
     xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-    directory=directory, run_name="sample{samplecounter}", 
+    directory=directory, run_name=f"sample{samplecounter}", 
     overwrite=False, delete_prism=True, verbose=verbose)
+    samplecounter += 1
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
     ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel) # scale model to data
 
@@ -52,26 +46,28 @@ def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, directory=
         mask = np.zeros_like(xdata, dtype=bool)
         for low, high in fitting_mask:
             mask |= (xdata > low) & (xdata < high)
-        ydata = ydata[mask]
-        ymodel_interp = ymodel_interp[mask]
-        ysigma = ysigma[mask]
+        ydata_fit = ydata[mask]
+        ymodel_interp_fit = ymodel_interp[mask]
+        ysigma_fit = ysigma[mask]
 
     # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
-    res = minimize_scalar(reducedchisquared, args=(ydata, ymodel_interp, ysigma), bounds=(0.2, 1.5), method='bounded')
+    res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
     scalar = res.x
-    
-    return -0.5 * np.sum(((ydata - scalar*ymodel_interp) / ysigma)**2 + np.log(2 * np.pi * ysigma**2))
+    # plt.plot(xdata, ydata, color="black", label="Data")
+    # plt.plot(xdata, scalar*ymodel_interp, color="red", label="Model")
+    # plt.show()
+    return -0.5 * np.sum(((ydata_fit - scalar*ymodel_interp_fit) / ysigma_fit)**2 + np.log(2 * np.pi * ysigma_fit**2))
 
 def log_prior(params):
     """
     If all params are within bounds return 0.0 else return -np.inf
     This is equivalent to a prior with uniform/constant probability within the bounds and a zero probability outside (log(1)=0 and log(0)=-inf) 
     """
-    tc, lognc, ts, rhoR = params
+    tc_kev, lognc, ts_kev, rhoR = params
     global params_bounds
-    if (params_bounds['tc'][0] < tc < params_bounds['tc'][1] and
+    if (params_bounds['tc_kev'][0] < tc_kev < params_bounds['tc_kev'][1] and
         params_bounds['lognc'][0] < lognc < params_bounds['lognc'][1] and
-        params_bounds['ts'][0] < ts < params_bounds['ts'][1] and
+        params_bounds['ts_kev'][0] < ts_kev < params_bounds['ts_kev'][1] and
         params_bounds['rhoR'][0] < rhoR < params_bounds['rhoR'][1]):
         return 0.0
     else:
@@ -84,13 +80,13 @@ def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, directory
     return lp + log_likelihood(params, xdata, ydata, ysigma, fitting_mask=fitting_mask, verbose=verbose, directory=directory)
 
 # 2c. Define parameters, initial guess, bounds and MCMC settings
-params_initial = {'tc': tc, 'lognc': np.log10(nc), 'ts': ts, 'rhoR': rhoR}
-params_bounds  = {'tc': (900, 1300), 'lognc': (23, 25), 'ts': (200, 400), 'rhoR': (0.07, 0.14)}
+params_initial = {'tc_kev': 1, 'lognc': 24, 'ts_kev': 0.3, 'rhoR': 0.09}
+params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23, 25), 'ts_kev': (0.2, 0.4), 'rhoR': (0.07, 0.14)}
 nwalkers       = 10
-nsteps         = 15
+nsteps         = 50
 fitting_mask   = [(3500,3756), (3810,4250)]
 verbose        = False
-
+directory      = "data/mcmc_run_kev/"
 # Initial positions of walkers
 pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters
 nwalkers, ndim  = pos.shape
@@ -100,7 +96,7 @@ samplecounter     = 1
 filename = "mcmc_run.h5"
 backend  = emcee.backends.HDFBackend(filename)
 backend.reset(nwalkers, ndim)
-sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, "data/mcmc_run/", verbose))
+sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, directory, verbose))
 sampler.run_mcmc(pos, nsteps, progress=True)
 
 # Results
@@ -135,7 +131,7 @@ fig = corner.corner(flat_samples, labels=labels,)
 plt.show()
 
 # Get values which fall within 1 sigma (68% percentile)
-inds = len(flat_samples) - 1 # sample index (for filenames)
+inds = np.arange(flat_samples.shape[0]) # sample index (for filenames)
 for i in range(ndim):
     result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
     q = np.diff(result_values)
@@ -143,18 +139,33 @@ for i in range(ndim):
     print(f"{labels[i]} = {result_values[1]:.1f} + {q[0]:.1f} - {q[1]:.1f}")
 
     # filter flat_samples to only include those within 1 sigma of the median for each parameter
-    mask = (flat_samples[:, i] > result_values[0]) & (flat_samples[:, i] < result_values[2])
-    flat_samples = flat_samples[mask]
-    inds = inds[mask]
+    #mask = (flat_samples[:, i] > result_values[0]) & (flat_samples[:, i] < result_values[2])
+    #flat_samples = flat_samples[mask]
+    #inds = inds[mask]
 
 fig, ax = plt.subplots()
 for ind in inds:
     sampleparams = flat_samples[ind]
-    sampledata = np.loadtxt(f"data/mcmc_run1/sample{ind}_eid.txt").T
+    sampledata = np.loadtxt(f"{directory}sample{ind+1}_eid.txt").T
     xmodel, ymodel = sampledata[0], sampledata[1]
-    ax.plot(xmodel, ymodel, "C1", alpha=0.1)
+    # mask ydata and ymodel_interp 
+    if fitting_mask is not None:
+        mask = np.zeros_like(xdata, dtype=bool)
+        for low, high in fitting_mask:
+            mask |= (xdata > low) & (xdata < high)
+        ydata_fit = ydata[mask]
+        ymodel_interp_fit = ymodel_interp[mask]
+        ysigma_fit = ysigma[mask]
 
-ax.errorbar(xdata, ydata, yerr=ydata_sigma, fmt=".k", capsize=0)
+    # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
+    res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
+    scalar = res.x
+
+    ax.plot(xmodel, scalar*ymodel, "C1", alpha=0.1)
+if fitting_mask is not none:
+    for low, high in fitting_mask:
+        ax.axvspan(low, high, color="grey", alpha=0.1)
+ax.errorbar(xdata, ydata, yerr=ysigma, color="black", capsize=0)
 ax.set_xlabel("Energy (eV)")
 ax.set_ylabel("Intensity (arb.)")
 
