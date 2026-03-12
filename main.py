@@ -3,6 +3,8 @@ import pandas as pd
 import corner
 import emcee
 
+from time import time
+from multiprocessing import Pool
 from pathlib import Path
 from matplotlib import pyplot as plt
 from scipy.optimize import minimize_scalar
@@ -23,7 +25,7 @@ def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, directory=
     ts = ts_kev * 1e3
     global samplecounter
     xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-    directory=directory, run_name=f"sample{samplecounter}", # run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
+    directory=directory, run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
     overwrite=False, delete_prism=True, verbose=verbose)
     samplecounter += 1
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
@@ -81,13 +83,13 @@ if __name__ == "__main__":
     xdata, ydata, ysigma = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1, 'lognc': 24, 'ts_kev': 0.3, 'rhoR': 0.09}
-    params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23, 25), 'ts_kev': (0.2, 0.4), 'rhoR': (0.07, 0.14)}
+    params_initial = {'tc_kev': 1.15, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.09}
+    params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.07, 0.14)}
     nwalkers       = 10
-    nsteps         = 60
-    fitting_mask   = [(3500,3756), (3810,4250)]
-    verbose        = False
-    directory      = "data/mcmc_run_kev/"
+    nsteps         = 150
+    fitting_mask   = [(3500,3756), (3810,4400)]
+    verbose        = True
+    directory      = "data/mcmc_run_kev_multi/"
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters
     nwalkers, ndim  = pos.shape
@@ -97,8 +99,10 @@ if __name__ == "__main__":
     filename = "mcmc_run.h5"
     backend  = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim)
-    sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, directory, verbose))
-    sampler.run_mcmc(pos, nsteps, progress=True)
+
+    with Pool(processes=10) as pool:
+        sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, directory, verbose), pool=pool)
+        sampler.run_mcmc(pos, nsteps, progress=True)
 
     # Results
     # -------
@@ -166,7 +170,7 @@ if __name__ == "__main__":
         # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
         res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
         scalar = res.x
-        ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.1)
+        ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
         
     if fitting_mask is not None:
         for low, high in fitting_mask:
