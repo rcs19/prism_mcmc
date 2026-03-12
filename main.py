@@ -36,13 +36,13 @@ rhoR = 0.09  # g/cm2
 def reducedchisquared(a, ydata, ymodel, ysigma):
     return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
 
-def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, verbose=False):
+def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, directory="data/mcmc_run/",  verbose=False):
     tc, lognc, ts, rhoR = params
     nc = 10**lognc
 
-    global samplecount
+    global samplecounter
     xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-    directory="data/mcmc_run1/", run_name="sample{samplecount}", 
+    directory=directory, run_name="sample{samplecounter}", 
     overwrite=False, delete_prism=True, verbose=verbose)
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
     ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel) # scale model to data
@@ -77,11 +77,11 @@ def log_prior(params):
     else:
         return -np.inf 
 
-def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, verbose=False):
+def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, directory="data/mcmc_run/", verbose=False):
     lp = log_prior(params)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(params, xdata, ydata, ysigma, fitting_mask=fitting_mask)
+    return lp + log_likelihood(params, xdata, ydata, ysigma, fitting_mask=fitting_mask, verbose=verbose, directory=directory)
 
 # 2c. Define parameters, initial guess, bounds and MCMC settings
 params_initial = {'tc': tc, 'lognc': np.log10(nc), 'ts': ts, 'rhoR': rhoR}
@@ -94,8 +94,13 @@ verbose        = False
 # Initial positions of walkers
 pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters
 nwalkers, ndim  = pos.shape
-samplecount     = 1
-sampler         = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, verbose))
+samplecounter     = 1
+
+# Initialise sampler with HDFBackend to save results to file
+filename = "mcmc_run.h5"
+backend  = emcee.backends.HDFBackend(filename)
+backend.reset(nwalkers, ndim)
+sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, "data/mcmc_run/", verbose))
 sampler.run_mcmc(pos, nsteps, progress=True)
 
 # Results
@@ -127,24 +132,30 @@ plot_chain(sampler, title="All Samples")
 # Corner plot
 flat_samples = sampler.get_chain(flat=True)
 fig = corner.corner(flat_samples, labels=labels,)
-# plt.show()
+plt.show()
 
-# fig, ax = plt.subplots()
-# inds = np.random.randint(len(flat_samples), size=100)
-# for ind in inds:
-#     sample = flat_samples[ind]
-#     ysample = sample[0] * np.sin(2*np.pi*xdata/sample[1]) - sample[2]
-#     ax.plot(xdata, ysample, "C1", alpha=0.1)
-# ax.errorbar(xdata, ydata, yerr=ydata_sigma, fmt=".k", capsize=0)
-# # ax.plot(x0, m_true * x0 + b_true, "k", label="truth")
-# ax.set_xlabel("x")
-# ax.set_ylabel("y")
+# Get values which fall within 1 sigma (68% percentile)
+inds = len(flat_samples) - 1 # sample index (for filenames)
+for i in range(ndim):
+    result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
+    q = np.diff(result_values)
+    # print(f"{labels[i]} = ${result_values[1]}_{{{q[0]}}}^{{{q[1]}}}$")
+    print(f"{labels[i]} = {result_values[1]:.1f} + {q[0]:.1f} - {q[1]:.1f}")
 
-# # Get values which fall within 1 sigma (68% percentile)
-# for i in range(ndim):
-#     result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
-#     q = np.diff(result_values)
-#     # print(f"{labels[i]} = ${result_values[1]}_{{{q[0]}}}^{{{q[1]}}}$")
-#     print(f"{labels[i]} = {result_values[1]:.1f} + {q[0]:.1f} - {q[1]:.1f}")
+    # filter flat_samples to only include those within 1 sigma of the median for each parameter
+    mask = (flat_samples[:, i] > result_values[0]) & (flat_samples[:, i] < result_values[2])
+    flat_samples = flat_samples[mask]
+    inds = inds[mask]
 
-# plt.show()
+fig, ax = plt.subplots()
+for ind in inds:
+    sampleparams = flat_samples[ind]
+    sampledata = np.loadtxt(f"data/mcmc_run1/sample{ind}_eid.txt").T
+    xmodel, ymodel = sampledata[0], sampledata[1]
+    ax.plot(xmodel, ymodel, "C1", alpha=0.1)
+
+ax.errorbar(xdata, ydata, yerr=ydata_sigma, fmt=".k", capsize=0)
+ax.set_xlabel("Energy (eV)")
+ax.set_ylabel("Intensity (arb.)")
+
+plt.show()
