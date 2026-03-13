@@ -77,7 +77,7 @@ if __name__ == "__main__":
     filepath_sigma = filepath_exp.parent / (filepath_exp.stem + "_sigma" + filepath_exp.suffix)
 
     data_exp = pd.read_csv(filepath_exp, sep="\\s+", header=None)
-    data_exp[2] = np.loadtxt(filepath_sigma).T[1]
+    data_exp[2] = np.loadtxt(filepath_sigma, unpack=True)[1]
     data_crop = (3430,5000)
     data_exp[0]    = calibrate_x(data_exp[1], ref_eV=[3683,3934,4150], ref_idx=[143.5, 252.41, 332.65]) # 98252 t4 f3
     data_exp_cropped = data_exp[(data_exp[0]>data_crop[0]) & (data_exp[0]<data_crop[1])].reset_index(drop=True)
@@ -89,10 +89,10 @@ if __name__ == "__main__":
     params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.08, 0.17)}
     nwalkers       = 10
     nsteps         = 150
-    fitting_mask   = [(3450,4500)]
+    fitting_mask   = [(3450,4800)]
     verbose        = True
-    directory      = "data/mcmc_run_4/"
-    savefile = "mcmc_run_4.h5"
+    directory      = "data/mcmc_run_5/"
+    savefile = "mcmc_run_5.h5"
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
@@ -151,12 +151,12 @@ if __name__ == "__main__":
 
     directory = Path(directory)
     fig, ax = plt.subplots()
+
     for file in directory.rglob("*.txt"):
         file_params = file.stem.split("_")[1:-1] # extract parameters from filename
         tc_kev, lognc, ts_kev, rhoR = map(float, file_params)
         if (sigma_bounds[0][0] < tc_kev < sigma_bounds[0][1] and sigma_bounds[1][0] < lognc < sigma_bounds[1][1] and sigma_bounds[2][0] < ts_kev < sigma_bounds[2][1] and sigma_bounds[3][0] < rhoR < sigma_bounds[3][1]):
-            sampledata = np.loadtxt(file).T
-            xmodel, ymodel = sampledata[0], sampledata[1]
+            xmodel, ymodel = np.loadtxt(file, unpack=True)
             # mask ydata and ymodel_interp 
             ymodel = gaussian_broadening(xmodel, ymodel, R=150)
             ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel)
@@ -173,9 +173,11 @@ if __name__ == "__main__":
             res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
             scalar = res.x
             ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
+    
     if fitting_mask is not None:
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)
+            
     ax.errorbar(xdata, ydata, yerr=ysigma, color="black", capsize=0)
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
