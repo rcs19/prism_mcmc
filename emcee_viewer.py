@@ -28,7 +28,7 @@ if __name__ == "__main__":
     filepath_sigma = filepath_exp.parent / (filepath_exp.stem + "_sigma" + filepath_exp.suffix)
 
     data_exp = pd.read_csv(filepath_exp, sep="\\s+", header=None)
-    data_exp[2] = np.loadtxt(filepath_sigma).T[1]
+    data_exp[2] = np.loadtxt(filepath_sigma, unpack=True)[1]
     data_crop = (3430,5000)
     data_exp[0]    = calibrate_x(data_exp[1], ref_eV=[3683,3934,4150], ref_idx=[143.5, 252.41, 332.65]) # 98252 t4 f3
     data_exp_cropped = data_exp[(data_exp[0]>data_crop[0]) & (data_exp[0]<data_crop[1])].reset_index(drop=True)
@@ -39,17 +39,15 @@ if __name__ == "__main__":
     params_initial = {'tc_kev': 1.15, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.09}
     params_bounds  = {'tc_kev': (0.9, 1.3), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.08, 0.17)}
     nwalkers       = 10
-    nsteps         = 2
     fitting_mask   = [(3450,4500)]
-    verbose        = True
-    directory      = "data/mcmc_run_3/"
-    savefile       = "mcmc_run_3.h5"
-
+    directory      = "data/mcmc_run_5/"
+    savefile       = "mcmc_run_5.h5"
+    burn = 80       
+    thin = 1
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
     nwalkers, ndim  = pos.shape
     sampler = emcee.backends.HDFBackend(savefile)
-
 
     # Results
     # -------
@@ -61,11 +59,11 @@ if __name__ == "__main__":
 
     labels = ["tc", "log(nc)", "ts", "rhoR"]
 
-    plot_chain(sampler, title="All Samples")
-    # plot_chain(sampler, burn=20, thin=1, title="Burned and thinned")
+    #plot_chain(sampler, title="All Samples")
+    plot_chain(sampler, burn=burn, thin=thin, title="Burned and thinned")
 
     # Corner plot
-    flat_samples = sampler.get_chain(flat=True)
+    flat_samples = sampler.get_chain(flat=True, discard=burn, thin=thin)
     fig = corner.corner(flat_samples, labels=labels,)
 
     # Get values which fall within 1 sigma (68% percentile)
