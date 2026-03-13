@@ -153,8 +153,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
         if (directory / f"{run_name}_eid.txt").exists():
             if verbose:
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
-            eid = np.loadtxt(directory / f"{run_name}_eid.txt").T
-            return eid[0], eid[1]
+            nu, eid = np.loadtxt(directory / f"{run_name}_eid.txt", unpack=True)
+            return nu, eid
 
     rundirectory = directory / run_name
     rundirectory.mkdir(parents=True, exist_ok=True)
@@ -163,20 +163,28 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
     psi_core_path = write_psi(tc, nc, rc, template_psi="data/inputs/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
     psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/inputs/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
     
-    # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files are:
-    # directory/run_name/run_name.psc - copy of input deck
-    # directory/run_name/run_name.psr - main results file
-    # directory/run_name/results/spect.ppd - output spectra 
-    if verbose:
-        print(f"Running PrismSPECT with params:\ntc={tc:.5f}, nc={nc}, rc={rc}, ts={ts:.5f}, ns={ns}, rhoR={rhoR:.6f}")
-    core_path = run_PrismSPECT(psi_core_path, run_name="temp_core", overwrite=True, delete_aux=True, verbose=verbose)
-    shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
+    attempts = 0
+    while attempts < 3:
+        try:
+            # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files (not deleted by delete_aux):
+            # directory/run_name/run_name.psc - copy of input deck
+            # directory/run_name/run_name.psr - main results file
+            # directory/run_name/results/spect.ppd - output spectra 
+            if verbose:
+                print(f"Running PrismSPECT with params:\ntc={tc:.0f}, nc={nc:.4g}, rc={rc}, ts={ts:.1f}, ns={ns:.1f}, rhoR={rhoR:.4f}")
+            core_path = run_PrismSPECT(psi_core_path, run_name="temp_core", overwrite=True, delete_aux=True, verbose=verbose)
+            shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
-    # Load spectra and transmission from output files spect.ppd
-    core_ppd = np.loadtxt(core_path / "results/spect.ppd", comments="#").T
-    shell_ppd = np.loadtxt(shell_path / "results/spect.ppd", comments="#").T
-    nu_core, I_core = core_ppd[0], core_ppd[1]
-    nu_shell, I_shell, op_shell = shell_ppd[0], shell_ppd[1], shell_ppd[2]
+            # Load spectra and transmission from output files spect.ppd
+            nu_core, I_core = np.loadtxt(core_path / "results/spect.ppd", comments="#", usecols=(0,1), unpack=True)
+            nu_shell, I_shell, op_shell = np.loadtxt(shell_path / "results/spect.ppd", comments="#", usecols=(0,1,2), unpack=True) 
+            break
+        except FileNotFoundError as e:
+            attempts += 1
+            print(f"Error: {e} attempt {attempts}")
+            if attempts >= 3:
+                raise e
+
     tr_shell = np.exp ( -op_shell * rhoR )
 
     # Interpolate shell onto core nu grid
@@ -208,4 +216,10 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
     return nu_core, eid_y
 
 if __name__ == "__main__":
-    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "sample1", overwrite=False, delete_prism=True, verbose=False)
+    from time import time
+    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "testsample", overwrite=False, delete_prism=True, verbose=False)
+
+    t_start = time()
+    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
+    t_end = time()
+    print(f"Time taken: {t_end - t_start:.2f} seconds")
