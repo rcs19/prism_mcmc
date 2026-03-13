@@ -100,7 +100,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overwrite=True, delete_prism=False, verbose=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overwrite=False, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
