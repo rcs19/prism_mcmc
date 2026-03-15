@@ -9,6 +9,7 @@ import subprocess
 import numpy as np
 from pathlib import Path
 from datetime import datetime
+import time
 
 def write_psi(temp, dens, size, template_psi=None, out_psi="core_spherical_atbase.psi"):
     """
@@ -85,11 +86,12 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
     if overwrite:
         run_command = run_command + " -x"
     
-    # Run PrismSPECT simulation with hidden outputs (stdout and stderr)
-    if verbose:
-        subprocess.run(run_command, shell=True)
-    else:
-        subprocess.run(run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    ## Run PrismSPECT simulation with hidden outputs (stdout and stderr)
+    # if verbose:
+    #     subprocess.run(run_command, shell=True)
+    # else:
+    #     subprocess.run(run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    subprocess.run(run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) # force run silent
 
     output_dir = (psi_filepath.parent / run_name) if run_name is not None else (psi_filepath.parent)
 
@@ -155,17 +157,17 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
             nu, eid = np.loadtxt(directory / f"{run_name}_eid.txt", unpack=True)
             return nu, eid
-
-    rundirectory = directory / run_name
-    rundirectory.mkdir(parents=True, exist_ok=True)
-
-    # Generate temporary PrismSPECT input deck .psi for core and shell.
-    psi_core_path = write_psi(tc, nc, rc, template_psi="data/inputs/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
-    psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/inputs/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
     
     attempts = 0
     while attempts < 3:
         try:
+            rundirectory = directory / run_name
+            rundirectory.mkdir(parents=True, exist_ok=True)
+
+            # Generate temporary PrismSPECT input deck .psi for core and shell.
+            psi_core_path = write_psi(tc, nc, rc, template_psi="data/inputs/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
+            psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/inputs/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
+
             # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files (not deleted by delete_aux):
             # directory/run_name/run_name.psc - copy of input deck
             # directory/run_name/run_name.psr - main results file
@@ -181,7 +183,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
             break
         except FileNotFoundError as e:
             attempts += 1
-            print(f"Error: {e} attempt {attempts}")
+            print(f"!Error: {e} attempt {attempts}")
+            time.sleep(1) # Wait a bit before retrying
             if attempts >= 3:
                 raise e
 
@@ -216,10 +219,9 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
     return nu_core, eid_y
 
 if __name__ == "__main__":
-    from time import time
     xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "testsample", overwrite=False, delete_prism=True, verbose=False)
 
-    t_start = time()
+    t_start = time.time()
     xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
-    t_end = time()
+    t_end = time.time()
     print(f"Time taken: {t_end - t_start:.2f} seconds")
