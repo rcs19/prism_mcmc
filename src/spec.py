@@ -154,7 +154,7 @@ def get_ysigma(ydata, window=5):
 
     return ydata_sigma
 
-def adjust_weights(ysigma, regions, multiplier=0.5):
+def adjust_weights(xdata, ysigma, regions, multiplier=0.5):
     """
     Adjust the weights (i.e., sigma) of data points in specified regions by multiplying with a given factor.
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Data sigma")
     # plt.show()
 
-    ysigma_adjusted = adjust_weights(ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.2)
+    ysigma_adjusted = adjust_weights(xdata, ysigma, regions=[(3600,3710), (3830,3960), (4060,4400)], multiplier=0.4)
     fig, ax = plt.subplots()
     ax.plot(xdata, ydata, label="Data")
     ax.fill_between(xdata, ydata-ysigma_adjusted, ydata+ysigma_adjusted, color="gray", alpha=0.5, label="Data sigma")
