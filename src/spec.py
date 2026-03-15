@@ -154,6 +154,33 @@ def get_ysigma(ydata, window=5):
 
     return ydata_sigma
 
+def adjust_weights(ysigma, regions, multiplier=0.5):
+    """
+    Adjust the weights (i.e., sigma) of data points in specified regions by multiplying with a given factor.
+
+    Parameters
+    ----------
+    ysigma : array-like
+        The uncertainties (sigma) associated with each data point.
+    regions : list of tuples
+        List of tuples specifying ranges to adjust (e.g., [(start1, end1), (start2, end2)]).
+    multiplier : float
+        The factor by which to multiply the sigma values in the specified regions.
+
+    Returns
+    -------
+    ysigma_adjusted : array-like
+        The adjusted sigma values.
+    """
+    ysigma_adjusted = np.array(ysigma)  
+    for start, end in regions:
+        mask = (xdata >= start) & (xdata <= end)
+        ysigma_adjusted[mask] *= multiplier
+    ysigma_adjusted = ysigma_adjusted / multiplier
+    
+    return ysigma_adjusted
+
+
 if __name__ == "__main__":
     from pathlib import Path
     import matplotlib.pyplot as plt
@@ -171,8 +198,13 @@ if __name__ == "__main__":
 
     xdata, ydata, ysigma  = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
 
-
     fig, ax = plt.subplots()
     ax.plot(xdata, ydata, label="Data")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Data sigma")
+    # plt.show()
+
+    ysigma_adjusted = adjust_weights(ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.2)
+    fig, ax = plt.subplots()
+    ax.plot(xdata, ydata, label="Data")
+    ax.fill_between(xdata, ydata-ysigma_adjusted, ydata+ysigma_adjusted, color="gray", alpha=0.5, label="Data sigma")
     plt.show()
