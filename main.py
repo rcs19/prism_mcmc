@@ -85,18 +85,17 @@ if __name__ == "__main__":
     xdata, ydata, ysigma_original = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
 
     # Adjust weights for the data points in the specified regions
-    ysigma = adjust_weights(ysigma_original, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.2)
-
-
+    ysigma = adjust_weights(xdata, ysigma_original, regions=[(3600,3710), (3830,3960), (4060,4400)], multiplier=0.4)
+    
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.15, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.09}
     params_bounds  = {'tc_kev': (0.9, 1.4), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.08, 0.17)}
     nwalkers       = 12
     nsteps         = 140
-    fitting_mask   = [(3430,4800)]
+    fitting_mask   = [(3600,3745), (3820,4000), (4070,4800)]
     verbose        = True
-    directory      = "data/mcmc_run_6/"
-    savefile = "mcmc_run_6.h5"
+    directory      = "data/mcmc_run_7/"
+    savefile = "mcmc_run_7.h5"
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
@@ -182,7 +181,8 @@ if __name__ == "__main__":
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)
             
-    ax.errorbar(xdata, ydata, yerr=ysigma, color="black", capsize=0)
+    ax.plot(xdata, ydata, color="black")
+    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Data sigma")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
     plt.show()
