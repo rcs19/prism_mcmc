@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 import time
 
-def write_psi(temp, dens, size, template_psi=None, out_psi="core_spherical_atbase.psi"):
+def write_psi(temp, dens, size, template_psi=None, out_psi="test.psi"):
     """
     Write a new PrismSPECT input deck .psi for a spherical core plasma with the given temperature, density and size.
     The units of density and size depend on the given template.psi.
@@ -28,7 +28,7 @@ def write_psi(temp, dens, size, template_psi=None, out_psi="core_spherical_atbas
     template_psi: str or Path
         Path to the template .psi file to use. Default is "data/templates/core_spherical_atbase.psi".
     out_psi: str or Path
-        Path to write the new .psi file to. Default is "core_spherical_atbase.psi" in the current working directory.
+        Path to write the new .psi file to. Default is "test.psi" in the current working directory.
 
     Returns:
     --------
@@ -102,7 +102,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overwrite=False, delete_prism=False, verbose=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_spherical_atbase.psi", shellpsi="data/inputs/templates/shell_planar_atbase_rhoR.psi", directory=None, run_name=None, overwrite=False, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
@@ -165,8 +165,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, directory=None, run_name=None, overw
             rundirectory.mkdir(parents=True, exist_ok=True)
 
             # Generate temporary PrismSPECT input deck .psi for core and shell.
-            psi_core_path = write_psi(tc, nc, rc, template_psi="data/inputs/templates/core_spherical_atbase.psi", out_psi=rundirectory / "temp_core.psi")
-            psi_shell_path = write_psi(ts, ns, rhoR, template_psi="data/inputs/templates/shell_planar_atbase_rhoR.psi", out_psi=rundirectory / "temp_shell.psi")
+            psi_core_path = write_psi(tc, nc, rc, template_psi=corepsi, out_psi=rundirectory / "temp_core.psi")
+            psi_shell_path = write_psi(ts, ns, rhoR, template_psi=shellpsi, out_psi=rundirectory / "temp_shell.psi")
 
             # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files (not deleted by delete_aux):
             # directory/run_name/run_name.psc - copy of input deck
@@ -224,4 +224,9 @@ if __name__ == "__main__":
     t_start = time.time()
     xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
     t_end = time.time()
-    print(f"Time taken: {t_end - t_start:.2f} seconds")
+    print(f"Time taken termsplit: {t_end - t_start:.2f} seconds")
+
+    t_start = time.time()
+    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, corepsi="data/inputs/templates/core_spherical_atbase_leastdetailed.psi", directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
+    t_end = time.time()
+    print(f"Time taken least detailed: {t_end - t_start:.2f} seconds")
