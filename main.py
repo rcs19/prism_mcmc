@@ -147,7 +147,7 @@ if __name__ == "__main__":
         result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
         q = np.diff(result_values)
         # print(f"{labels[i]} = ${result_values[1]}_{{{q[0]}}}^{{{q[1]}}}$")
-        print(f"{labels[i]} = {result_values[1]:.1f} + {q[0]:.1f} - {q[1]:.1f}")
+        print(f"{labels[i]} = {result_values[1]:.2f} + {q[0]:.2f} - {q[1]:.2f}")
 
         # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
         sigma_bounds.append((result_values[0], result_values[2]))
