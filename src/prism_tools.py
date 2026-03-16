@@ -102,7 +102,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_spherical_atbase.psi", shellpsi="data/inputs/templates/shell_planar_atbase_rhoR.psi", directory=None, run_name=None, overwrite=False, delete_prism=False, verbose=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_spherical_atbase.psi", shellpsi="data/inputs/templates/shell_planar_atbase_rhoR.psi", directory=None, run_name=None, reuse_run=None, overwrite=False, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
@@ -131,6 +131,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
         Directory to save output files. If None, defaults to "data/".
     run_name: str, default = None
         Name for output files and output folder. If None, defaults to a timestamp "yyyymmdd_HHMMSS".
+    reuse_run: str or list, default = None
+        Reuse existing output files from specified name of previous run. Will check if "directory/reuse/sample*.txt" exists first before checking current run directory (if overwrite=True). Otherwise run as normal, running new simulations.
     overwrite: bool, default = False
         If False, checks if "directory / run_name_eid.txt" exists and reuses it. Otherwise, re-run PrismSPECT simulations. If True, PrismSPECT will run anyway. !Caution! The reused output may not correspond to the given input, so only use if certain. 
     delete_prism: bool, default = False
@@ -149,6 +151,20 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
     if run_name is None:
         run_name = datetime.now().strftime(r"%Y%m%d_%H%M%S")
     directory = Path(directory)
+
+    if reuse_run is not None:
+        reuse_directories = []
+        if isinstance(reuse_run, str):
+            reuse_directories.append(directory/reuse_run)
+        elif isinstance(reuse_run, list):
+            reuse_directories = [directory / Path(r) for r in reuse_run]
+        
+        for rundir in reuse_directories:
+            if (rundir / f"{run_name}_eid.txt").exists():
+                if verbose:
+                    print(f"Reusing {rundir} / {run_name}_eid.txt...")
+                nu, eid = np.loadtxt(rundir / f"{run_name}_eid.txt", unpack=True)
+                return nu, eid
 
     if not overwrite:
         # Check if directory / run_name_eid.txt exists
