@@ -26,7 +26,7 @@ def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, directory=
     tc = tc_kev * 1e3
     ts = ts_kev * 1e3
     global samplecounter
-    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, corepsi="data/inputs/templates/core_spherical_fac.psi",
     directory=directory, run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
     overwrite=False, delete_prism=True, verbose=verbose)
     samplecounter += 1
@@ -85,17 +85,17 @@ if __name__ == "__main__":
     xdata, ydata, ysigma_original = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
 
     # Adjust weights for the data points in the specified regions
-    ysigma = adjust_weights(xdata, ysigma_original, regions=[(3600,3710), (3830,3960), (4060,4400)], multiplier=0.4)
-    
+    ysigma = adjust_weights(xdata, ysigma_original, regions=[(3600,3710), (3820,3960), (4060,4400)], multiplier=0.3)
+
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1.15, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.09}
-    params_bounds  = {'tc_kev': (0.9, 1.4), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.5), 'rhoR': (0.08, 0.17)}
-    nwalkers       = 12
-    nsteps         = 140
-    fitting_mask   = [(3600,3745), (3820,4000), (4070,4800)]
+    params_initial = {'tc_kev': 1.10, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.10}
+    params_bounds  = {'tc_kev': (0.9, 1.4), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.08, 0.17)}
+    nwalkers       = 10
+    nsteps         = 120
+    fitting_mask   = [(3550,3745), (3810,4000), (4070,4700)]
     verbose        = True
-    directory      = "data/mcmc_run_7/"
-    savefile = "mcmc_run_7.h5"
+    directory      = "data/mcmc_run_9/"
+    savefile = "mcmc_run_9.h5"
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
