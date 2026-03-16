@@ -109,8 +109,20 @@ if __name__ == "__main__":
     if fitting_mask is not None:
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)
-    ax.plot(xdata, ydata, color="black")
-    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Data sigma")
+    ax.axvspan(np.nan, np.nan, color="grey", alpha=0.1, label="Fitting Region")
+    ax.plot(xdata, ydata, color="black", label="Experimental")
+    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
+    ax.plot(np.nan, np.nan, color="red", alpha=0.2, label="Model")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
+    x_min, x_max = xdata.min(), xdata.max()
+
+    # conversion functions
+    to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
+    to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
+
+    ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
+    ax2.set_xlabel("Time (ps)")
+    # ax2.set_xlim(0, 220)   # optional: force exact 0–220 range
+
     plt.show()
