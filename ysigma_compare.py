@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from matplotlib import pyplot as plt
-from src.spec import calibrate_x
+from src.spec import calibrate_x, get_ysigma
 
 calibration_table = {
     "98252t4f2": [138., 247.0, 329.],  
@@ -23,20 +23,19 @@ def load_srs3p2(filepath):
     ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
     return xdata, ydata, ysigma
 
-folder = Path("data/exp/98252_xrf4_Mar2026/")
+folder = Path("data/exp/98263_xrf5_Mar2026/")
 
-xdata_f2, ydata_f2, ysigma_f2 = load_srs3p2(folder / "sis_f4" / "sis_f4_no_cr.txt")
-xdata_f2 = calibrate_x(ydata_f2, ref_eV=[3683,3934,4150])
+xabs, yabs, ysigmaabs = load_srs3p2(folder / "srs_f2_abs" / "srs_f2_abs_SRS_6_no_cr.txt")
+# ysigmaabs = get_ysigma(yabs, window=100)
+xfrac, yfrac, ysigmafrac = load_srs3p2(folder / "srs_f2_frac" / "srs_f2_frac_SRS_9_no_cr.txt")
 
-# xdata_f3, ydata_f3, ysigma_f3 = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-# xdata_f3 = calibrate_x(ydata_f3, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
-
-# fig, ax = plt.subplots()
-# ax.plot(xdata_f2, ydata_f2, color="black",)
-# ax.fill_between(xdata_f2, ydata_f2-ysigma_f2, ydata_f2+ysigma_f2, color="gray", alpha=0.5, label="Weight")
-
-# ax.plot(xdata_f3, ydata_f3, color="red",)
-# # ax.fill_between(xdata_f3, ydata_f3-ysigma_f3, ydata_f3+ysigma_f3, color="blue", alpha=0.5, label="Weight")
+fig, ax = plt.subplots()
+ax.plot(xabs, ysigmaabs, color="black", label="Absolute")
+ax.plot(xfrac, ysigmafrac, color="red", label="Fractional")
+# ax.fill_between(xabs, yabs-ysigmaabs, yabs+ysigmaabs, color="black", alpha=0.5, label="Uncertainty")
+# ax.plot(xabs, yabs, color="red", label="Absolute")
+# ax.fill_between(xfrac, yfrac-ysigmafrac, yfrac+ysigmafrac, color="red", alpha=0.5, label="Fractional")
+# ax.plot(xfrac, yfrac, color="blue", label="Fractional")
 
 # ax.set_xlabel("Energy (eV)")
 # ax.set_ylabel("Intensity (arb.)")
@@ -49,5 +48,5 @@ xdata_f2 = calibrate_x(ydata_f2, ref_eV=[3683,3934,4150])
 # ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
 # ax2.set_xlabel("Time (ps)")
 # # ax2.set_xlim(0, 220)   # optional: force exact 0–220 range
-# ax.legend()
-# plt.show()
+ax.legend()
+plt.show()
