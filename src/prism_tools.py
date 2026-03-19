@@ -194,7 +194,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
             shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
             # Load spectra and transmission from output files spect.ppd
-            nu_core, I_core = np.loadtxt(core_path / "results/spect.ppd", comments="#", usecols=(0,1), unpack=True)
+            nu_core, I_core, bf_core = np.loadtxt(core_path / "results/spect.ppd", comments="#", usecols=(0,1,12), unpack=True)
             nu_shell, I_shell, op_shell = np.loadtxt(shell_path / "results/spect.ppd", comments="#", usecols=(0,1,2), unpack=True) 
             break
         except FileNotFoundError as e:
