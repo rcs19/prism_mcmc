@@ -15,6 +15,32 @@ from src.prism_tools import reduced_model
 
 np.random.seed(0)
 
+calibration_table = {
+    "98252t4f2": [138., 247.0, 329.],  
+    "98252t4f3": [143.5, 252, 333],  
+    "98252t4f4": [134., 244.0, 329.],  
+    "98263t4f2": [142.2, 250, 330],
+    "98263t4f3": [142.2, 254, 339],
+}
+
+def load_srs3p2(filepath):
+    """
+    Load experimental data output by `srs3p2.pro`
+    """
+    # 1. Load experimental data
+    filepath = Path(filepath)
+    xdata, ydata = np.loadtxt(filepath, unpack=True)
+    try:
+        if "SRS" in filepath.stem:
+            filepath_sigma = filepath.parent / (filepath.stem[:-6] + "_sigma" + filepath.suffix)
+        else:
+            filepath_sigma = filepath.parent / (filepath.stem + "_sigma" + filepath.suffix)
+    except FileNotFoundError:
+        print(f"Sigma file not found for {filepath}. Returning ysigma as ones.")
+        ysigma = np.ones_like(ydata)
+    ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
+    return xdata, ydata, ysigma
+
 # Define log-likelihood, log-prior and log-probability functions for MCMC
 
 def reducedchisquared(a, ydata, ymodel, ysigma):
@@ -73,19 +99,11 @@ def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, directory
 
 if __name__ == "__main__":
     # 1. Load experimental data
-    filepath_exp = Path("data/exp/98252_xrf4/sis_f3/sis_f3_no_cr.txt")
-    filepath_sigma = filepath_exp.parent / (filepath_exp.stem + "_sigma" + filepath_exp.suffix)
-
-    data_exp = pd.read_csv(filepath_exp, sep="\\s+", header=None)
-    data_exp[2] = np.loadtxt(filepath_sigma, unpack=True)[1]
-    data_crop = (3430,5000)
-    data_exp[0]    = calibrate_x(data_exp[1], ref_eV=[3683,3934,4150], ref_idx=[143.5, 252.41, 332.65]) # 98252 t4 f3
-    data_exp_cropped = data_exp[(data_exp[0]>data_crop[0]) & (data_exp[0]<data_crop[1])].reset_index(drop=True)
-
-    xdata, ydata, ysigma_original = data_exp_cropped[0].values, data_exp_cropped[1].values, data_exp_cropped[2].values
-
+    folder = Path("data/exp/98263_xrf5_Mar2026/")
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3" / "sis_f3_no_cr.txt")
+    ysigma = ysigma*2
     # Adjust weights for the data points in the specified regions
-    ysigma = adjust_weights(xdata, ysigma_original, regions=[(3600,3710), (3820,3960), (4060,4400)], multiplier=0.3)
+    ysigma = adjust_weights(ysigma, regions=[(3600,3710), (3820,3960), (4060,4400)], multiplier=0.3)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.10, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.10}
