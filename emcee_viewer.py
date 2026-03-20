@@ -123,6 +123,5 @@ if __name__ == "__main__":
 
     ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
     ax2.set_xlabel("Time (ps)")
-    # ax2.set_xlim(0, 220)   # optional: force exact 0–220 range
 
     plt.show()
