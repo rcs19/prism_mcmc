@@ -161,6 +161,8 @@ def adjust_weights(xdata, ysigma, regions, multiplier=0.5):
 
     Parameters
     ----------
+    xdata : array-like
+        The x-coordinates, energy.
     ysigma : array-like
         The uncertainties (sigma) associated with each data point.
     regions : list of tuples
