@@ -9,11 +9,11 @@ from main import load_srs3p2, calibration_table
 matplotlib.rcParams.update({'font.size': 14})
 
 folder = Path("data/exp/98252_xrf4_Mar2026/")
-xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-xdata = calibrate_x(ydata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
-ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
-ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
+xdata, ydata, ysigma = load_srs3p2(folder / "sis_f2/sis_f2_no_cr.txt")
+xdata = calibrate_x(ydata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f2"])
+# ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
+# ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
+# ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
 
 fitting_mask   = [(3550,3745), (3810,4000), (4070,4500)]
 
