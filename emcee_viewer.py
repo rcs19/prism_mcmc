@@ -81,10 +81,12 @@ if __name__ == "__main__":
         file_params = file.stem.split("_")[1:-1] # extract parameters from filename
         tc_kev, lognc, ts_kev, rhoR = map(float, file_params)
         if (sigma_bounds[0][0] < tc_kev < sigma_bounds[0][1] and sigma_bounds[1][0] < lognc < sigma_bounds[1][1] and sigma_bounds[2][0] < ts_kev < sigma_bounds[2][1] and sigma_bounds[3][0] < rhoR < sigma_bounds[3][1]):
-            xmodel, ymodel = np.loadtxt(file, unpack=True)
+            xmodel, ymodel, ymodel_bf = np.loadtxt(file, unpack=True)
             # mask ydata and ymodel_interp 
             ymodel = gaussian_broadening(xmodel, ymodel, R=150)
-            ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel)
+            norm_factor     = np.max(ydata)/np.max(ymodel)
+            ymodel_interp   = np.interp(xdata, xmodel, ymodel) * norm_factor
+            ymodel_bf       = ymodel_bf * norm_factor
 
             if fitting_mask is not None:
                 mask = np.zeros_like(xdata, dtype=bool)
@@ -98,7 +100,8 @@ if __name__ == "__main__":
             res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
             scalar = res.x
             ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
-    
+            ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.05, label="Model B-F")
+
     if fitting_mask is not None:
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)

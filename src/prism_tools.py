@@ -147,7 +147,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
     """
 
     if directory is None:
-        directory = "data/"
+        directory = "data/mcmc_unnamed_run/"
     if run_name is None:
         run_name = datetime.now().strftime(r"%Y%m%d_%H%M%S")
     directory = Path(directory)
@@ -155,15 +155,16 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
     if reuse_run is not None:
         reuse_directories = []
         if isinstance(reuse_run, str):
-            reuse_directories.append(directory/reuse_run)
+            reuse_directories.append(reuse_run)
         elif isinstance(reuse_run, list):
-            reuse_directories = [directory / Path(r) for r in reuse_run]
+            reuse_directories = [Path(r) for r in reuse_run]
         
         for rundir in reuse_directories:
+            rundir = Path(rundir)
             if (rundir / f"{run_name}_eid.txt").exists():
                 if verbose:
                     print(f"Reusing {rundir} / {run_name}_eid.txt...")
-                nu, eid = np.loadtxt(rundir / f"{run_name}_eid.txt", unpack=True)
+                nu, eid, bf = np.loadtxt(rundir / f"{run_name}_eid.txt", unpack=True)
                 return nu, eid
 
     if not overwrite:
@@ -171,7 +172,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
         if (directory / f"{run_name}_eid.txt").exists():
             if verbose:
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
-            nu, eid = np.loadtxt(directory / f"{run_name}_eid.txt", unpack=True)
+            nu, eid, bf = np.loadtxt(directory / f"{run_name}_eid.txt", unpack=True)
             return nu, eid
     
     attempts = 0
@@ -211,10 +212,11 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
     tr_shell_interp = np.interp(nu_core, nu_shell, tr_shell)
 
     # Calculate emergent intensity distribution
+    bf_core = bf_core * tr_shell_interp
     eid_y = I_core * tr_shell_interp + I_shell_interp
 	
     # Save emergent intensity distribution to file
-    eid = np.array([nu_core, eid_y]).T
+    eid = np.array([nu_core, eid_y, bf_core]).T
     np.savetxt(directory / f"{run_name}_eid.txt", eid)
 
     if delete_prism:
