@@ -113,15 +113,15 @@ def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run
 if __name__ == "__main__":
     # 1. Load experimental data
     folder = Path("data/exp/98252_xrf4_Mar2026/")
-    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-    xdata = calibrate_x(xdata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
-    ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
-    ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f2/sis_f2_no_cr.txt")
+    xdata = calibrate_x(xdata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f2"])
+    # ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
+    # ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
+    # ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1.10, 'lognc': 24.3, 'ts_kev': 0.43, 'rhoR': 0.12}
-    params_bounds  = {'tc_kev': (0.9, 1.4), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.08, 0.17)}
+    params_initial = {'tc_kev': 0.90, 'lognc': 23.78, 'ts_kev': 0.3, 'rhoR': 0.08}
+    params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.05, 0.17)}
     nwalkers       = 10
     nsteps         = 110
     fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
