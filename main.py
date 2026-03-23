@@ -113,21 +113,18 @@ def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run
 if __name__ == "__main__":
     # 1. Load experimental data
     folder = Path("data/exp/98252_xrf4_Mar2026/")
-    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f2/sis_f2_no_cr.txt")
-    xdata = calibrate_x(xdata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f2"])
-    # ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-    # ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
-    # ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f4/sis_f4_no_cr.txt")
+    xdata += 21
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 0.90, 'lognc': 23.78, 'ts_kev': 0.3, 'rhoR': 0.08}
+    params_initial = {'tc_kev': 1.0, 'lognc': 24.46, 'ts_kev': 0.5, 'rhoR': 0.08}
     params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.05, 0.17)}
     nwalkers       = 10
-    nsteps         = 110
-    fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
+    nsteps         = 120
+    fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
     verbose        = True
-    directory      = "data/mcmc_run_11/"
-    savefile       = "mcmc_run_11.h5"
+    directory      = "data/mcmc_run_13/"
+    savefile       = "mcmc_run_13.h5"
     reuse_run      = None
 
     # Initial positions of walkers

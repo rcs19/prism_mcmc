@@ -10,15 +10,18 @@ from main import load_srs3p2, calibration_table, reducedchisquared
 matplotlib.rcParams.update({'font.size': 14})
 
 folder = Path("data/exp/98252_xrf4_Mar2026/")
-xdata, ydata, ysigma = load_srs3p2(folder / "sis_f2/sis_f2_no_cr.txt")
-xdata = calibrate_x(ydata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f2"])
+# xdata, ydata, ysigma = load_srs3p2(folder / "srs_f3_sq/srs_f3_sq_SRS_8_no_cr.txt")
+xdata, ydata, ysigma = load_srs3p2(folder / "sis_f4/sis_f4_no_cr.txt")
+xdata += 20
+# xdata = calibrate_x(xdata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
 # ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
 # ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
 # ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
 
-fitting_mask   = [(3550,3745), (3810,4000), (4070,4500)]
+# fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
+fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
 
-if False:
+if True:
     fig, ax = plt.subplots()
     ax.plot(xdata, ydata, label="Frame 3")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="black", alpha=0.2, label="$\\sigma$ Frame 3")
@@ -37,7 +40,7 @@ if False:
     ax.legend()
     plt.show()
 
-if True:
+if False:
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params = {'tc_kev': 0.97, 'lognc': 23.75, 'ts_kev': 0.25, 'rhoR': 0.14}
     fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
