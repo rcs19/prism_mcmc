@@ -41,7 +41,21 @@ def load_srs3p2(filepath):
     ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
     return xdata, ydata, ysigma
 
-# Define log-likelihood, log-prior and log-probability functions for MCMC
+def plot_chain(sampler, params, burn=0, thin=1, title=""):
+    samples = sampler.get_chain(discard=burn, thin=thin)
+    # Plotting the sampling chain for each walker 
+    fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+    for i, param in enumerate(params):
+        ax = axes[i]
+        ax.plot(samples[:, :, i], "k", alpha=0.3)
+        ax.set_xlim(0, len(samples))
+        ax.set_ylabel(param)
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+    axes[-1].set_xlabel("Step Number")
+    axes[0].set_title(title)
+    fig.subplots_adjust(hspace=0.)
+
+# MCMC Functinos : log-likelihood, log-prior and log-probability  
 
 def reducedchisquared(a, ydata, ymodel, ysigma):
     return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
@@ -99,21 +113,21 @@ def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, directory
 
 if __name__ == "__main__":
     # 1. Load experimental data
-    folder = Path("data/exp/98263_xrf5_Mar2026/")
-    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3" / "sis_f3_no_cr.txt")
-    ysigma = ysigma*2
-    # Adjust weights for the data points in the specified regions
-    ysigma = adjust_weights(ysigma, regions=[(3600,3710), (3820,3960), (4060,4400)], multiplier=0.3)
+    folder = Path("data/exp/98252_xrf4_Mar2026/")
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
+    ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
+    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
+    ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.10, 'lognc': 24.3, 'ts_kev': 0.4, 'rhoR': 0.10}
     params_bounds  = {'tc_kev': (0.9, 1.4), 'lognc': (23.5, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.08, 0.17)}
     nwalkers       = 10
-    nsteps         = 120
-    fitting_mask   = [(3550,3745), (3810,4000), (4070,4700)]
+    nsteps         = 110
+    fitting_mask   = [(3550,3745), (3810,4000), (4070,4500)]
     verbose        = True
-    directory      = "data/mcmc_run_9/"
-    savefile = "mcmc_run_9.h5"
+    directory      = "data/mcmc_run_10/"
+    savefile = "mcmc_run_10.h5"
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
@@ -136,23 +150,10 @@ if __name__ == "__main__":
     except emcee.autocorr.AutocorrError as e:
         print(str(e))
 
-    labels = ["tc", "log(nc)", "ts", "rhoR"]
-    def plot_chain(sampler, burn=0, thin=1, title=""):
-        samples = sampler.get_chain(discard=burn, thin=thin)
-        # Plotting the sampling chain for each walker 
-        fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
-        for i in range(ndim):
-            ax = axes[i]
-            ax.plot(samples[:, :, i], "k", alpha=0.3)
-            ax.set_xlim(0, len(samples))
-            ax.set_ylabel(labels[i])
-            ax.yaxis.set_label_coords(-0.1, 0.5)
-        axes[-1].set_xlabel("step number")
-        axes[0].set_title(title)
-        fig.subplots_adjust(hspace=0.)
+    labels = ["Tc", "log(nc)", "Ts", "$\\rho$R"]
 
-    plot_chain(sampler, title="All Samples")
-    # plot_chain(sampler, burn=20, thin=1, title="Burned and thinned")
+    plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
+    plot_chain(sampler, params=labels, burn=20, thin=1, title="Burned and thinned")
 
     # Corner plot
     flat_samples = sampler.get_chain(flat=True)
@@ -200,7 +201,17 @@ if __name__ == "__main__":
             ax.axvspan(low, high, color="grey", alpha=0.1)
             
     ax.plot(xdata, ydata, color="black")
-    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Data sigma")
+    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
+    ax.plot(np.nan, np.nan, color="red", alpha=0.2, label="Model")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
+    x_min, x_max = xdata.min(), xdata.max()
+
+    # conversion functions
+    to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
+    to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
+
+    ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
+    ax2.set_xlabel("Time (ps)")
+
     plt.show()
