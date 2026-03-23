@@ -3,9 +3,10 @@ import pandas as pd
 import matplotlib
 from pathlib import Path
 from matplotlib import pyplot as plt
-from src.spec import calibrate_x, get_ysigma, adjust_weights
-from main import load_srs3p2, calibration_table
-
+from scipy.optimize import minimize_scalar
+from src.spec import calibrate_x, get_ysigma, adjust_weights, gaussian_broadening
+from src.prism_tools import reduced_model
+from main import load_srs3p2, calibration_table, reducedchisquared
 matplotlib.rcParams.update({'font.size': 14})
 
 folder = Path("data/exp/98252_xrf4_Mar2026/")
@@ -17,32 +18,73 @@ xdata = calibrate_x(ydata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["9
 
 fitting_mask   = [(3550,3745), (3810,4000), (4070,4500)]
 
-fig, ax = plt.subplots()
-ax.plot(xdata, ydata, label="Frame 3")
-ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="black", alpha=0.2, label="$\\sigma$ Frame 3")
-ax.set_xlabel("Energy (eV)")
-ax.set_ylabel("Intensity (arb.)")
+if False:
+    fig, ax = plt.subplots()
+    ax.plot(xdata, ydata, label="Frame 3")
+    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="black", alpha=0.2, label="$\\sigma$ Frame 3")
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Intensity (arb.)")
 
-for low, high in fitting_mask:
-    ax.axvspan(low, high, color="grey", alpha=0.1)
+    for low, high in fitting_mask:
+        ax.axvspan(low, high, color="grey", alpha=0.1)
 
-x_min, x_max = xdata.min(), xdata.max()
-to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
-to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
-ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
-ax2.set_xlabel("Relative Time (ps)")
+    x_min, x_max = xdata.min(), xdata.max()
+    to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
+    to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
+    ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
+    ax2.set_xlabel("Relative Time (ps)")
 
-ax.legend()
-plt.show()
+    ax.legend()
+    plt.show()
 
-# fig, ax = plt.subplots()
-# ax.plot(np.nan, np.nan)
-# # ax.set_xlim(2750, 3050)
-# ax.set_xlim(3450, 5500)
-# ax.set_xlabel("Energy (eV)")
-# ax.set_ylabel("Intensity (arb.)")
-# ax.spines["left"].set_visible(False)
-# ax.spines["right"].set_visible(False)
-# ax.spines["top"].set_visible(False)
-# ax.yaxis.set_visible(False)
-# plt.show()
+if True:
+    # 2c. Define parameters, initial guess, bounds and MCMC settings
+    params = {'tc_kev': 0.97, 'lognc': 23.75, 'ts_kev': 0.25, 'rhoR': 0.14}
+    fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
+    directory = "data/prismspect_outputs/"
+    tc_kev, lognc, ts_kev, rhoR = params.values()
+    nc = 10**lognc
+    tc = tc_kev * 1e3
+    ts = ts_kev * 1e3
+    run_name = f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}"
+
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
+    corepsi="data/inputs/templates/core_spherical_fac.psi",
+    reuse_run=None, directory=directory, run_name=run_name, 
+    overwrite=False, delete_prism=False, verbose=True)
+    xmodel, ymodel, ymodel_bf = np.loadtxt(Path(directory) / (run_name + "_eid.txt"), unpack=True)
+    ymodel = gaussian_broadening(xmodel, ymodel, R=150)
+    norm_factor     = np.max(ydata)/np.max(ymodel)  
+    ymodel_interp = np.interp(xdata, xmodel, ymodel) * norm_factor # scale model to data
+    ymodel_bf = ymodel_bf * norm_factor
+
+    # mask ydata and ymodel_interp 
+    if fitting_mask is not None:
+        mask = np.zeros_like(xdata, dtype=bool)
+        for low, high in fitting_mask:
+            mask |= (xdata > low) & (xdata < high)
+        ydata_fit = ydata[mask]
+        ymodel_interp_fit = ymodel_interp[mask]
+        ysigma_fit = ysigma[mask]
+
+    # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
+    res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
+    scalar = res.x
+
+    fig, ax = plt.subplots()
+    ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.9, label="Model")
+    ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.9, label="Model B-F")
+    ax.plot(xdata, ydata, color="black")
+    ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Intensity (arb.)")
+    x_min, x_max = xdata.min(), xdata.max()
+
+    # conversion functions
+    to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
+    to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
+
+    ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
+    ax2.set_xlabel("Time (ps)")
+
+    plt.show()
