@@ -196,4 +196,5 @@ cython_debug/
 
 archive/
 *.zip
-data/
+data/exp/
+data/lineratio/
