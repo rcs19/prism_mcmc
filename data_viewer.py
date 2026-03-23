@@ -6,18 +6,11 @@ from matplotlib import pyplot as plt
 from src.spec import calibrate_x, get_ysigma, adjust_weights
 from main import load_srs3p2, calibration_table
 
-calibration_table = {
-    "98252t4f2": [138., 247.0, 329.],  
-    "98252t4f3": [143.5, 252, 333],  
-    "98252t4f4": [134., 244.0, 329.],  
-    "98263t4f2": [142.2, 250, 330],
-    "98263t4f3": [142.2, 254, 339],
-}
-
 matplotlib.rcParams.update({'font.size': 14})
 
 folder = Path("data/exp/98252_xrf4_Mar2026/")
 xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
+xdata = calibrate_x(ydata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
 ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
 ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
 ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
