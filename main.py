@@ -1,17 +1,17 @@
-import numpy as np
-import pandas as pd
-import corner
-import emcee
+import numpy as np          # type: ignore
+import pandas as pd         # type: ignore
+import corner               # type: ignore
+import emcee                # type: ignore
 
 from time import time
 from multiprocessing import Pool
 from pathlib import Path
-from matplotlib import pyplot as plt
-from scipy.optimize import minimize_scalar
+from matplotlib import pyplot as plt            # type: ignore
+from scipy.optimize import minimize_scalar      # type: ignore
 
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights
-from src.lineratio import get_te_ne
-from src.prism_tools import reduced_model
+from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights    # type: ignore
+from src.lineratio import get_te_ne                                                             # type: ignore         
+from src.prism_tools import reduced_model                                                       # type: ignore                               
 
 np.random.seed(0)
 
