@@ -98,20 +98,17 @@ def log_prior(params, params_bounds):
     If all params are within bounds return 0.0 else return -np.inf
     This is equivalent to a prior with uniform/constant probability within the bounds and a zero probability outside (log(1)=0 and log(0)=-inf) 
     """
-    tc_kev, lognc, ts_kev, rhoR = params
-    if (params_bounds['tc_kev'][0] < tc_kev < params_bounds['tc_kev'][1] and
-        params_bounds['lognc'][0] < lognc < params_bounds['lognc'][1] and
-        params_bounds['ts_kev'][0] < ts_kev < params_bounds['ts_kev'][1] and
-        params_bounds['rhoR'][0] < rhoR < params_bounds['rhoR'][1]):
+    names = list(params_bounds.keys())
+    if all(params_bounds[n][0] < v < params_bounds[n][1] for v, n in zip(params, names)):
         return 0.0
     else:
         return -np.inf 
 
 def log_probability(params, params_bounds, **likelihood_kwargs): # xdata, ydata, ysigma, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/", verbose=False
-    lp = log_prior(params, params_bounds=params_bounds)
+    lp = log_prior(params=params, params_bounds=params_bounds)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(params, **likelihood_kwargs)
+    return lp + log_likelihood(params=params, **likelihood_kwargs)
 
 if __name__ == "__main__":
     # 1. Load experimental data
@@ -125,10 +122,10 @@ if __name__ == "__main__":
     fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
     nwalkers       = 10
     nsteps         = 120
+    directory      = "data/mcmc_run_15/"
+    savefile       = "mcmc_run_15.h5"
+    reuse_run      = None 
     verbose        = True
-    directory      = "data/mcmc_run_13/"
-    savefile       = "mcmc_run_13.h5"
-    reuse_run      = None
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
@@ -139,7 +136,10 @@ if __name__ == "__main__":
     backend.reset(nwalkers, ndim)
 
     with Pool(processes=5) as pool:
-        sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(params_bounds, xdata, ydata, ysigma, fitting_mask, reuse_run, directory, verbose), backend=backend, pool=pool)
+        sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, 
+                                         args=(params_bounds,), 
+                                         kwargs={"xdata": xdata, "ydata": ydata, "ysigma": ysigma, "fitting_mask": fitting_mask, "directory": directory, "reuse_run": reuse_run, "verbose": verbose},
+                                         backend=backend, pool=pool)
         sampler.run_mcmc(pos, nsteps, progress=True)
 
     # Results #
