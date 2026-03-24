@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 import time
 
-def write_psi(temp, dens, size, template_psi=None, out_psi="test.psi"):
+def write_psi(temp, dens, size, carbonmix=None, template_psi=None, out_psi="test.psi"):
     """
     Write a new PrismSPECT input deck .psi for a spherical core plasma with the given temperature, density and size.
     The units of density and size depend on the given template.psi.
@@ -46,6 +46,9 @@ def write_psi(temp, dens, size, template_psi=None, out_psi="test.psi"):
     newpsi["Steady-state plasma params"]["Plasma temperature"] = temp
     newpsi["Steady-state plasma params"]["Plasma density"] = dens
     newpsi["Steady-state plasma params"]["Plasma size"] = size
+
+    if carbonmix is not None:
+        newpsi["Material params"]["Atomic element[3]"]["Number fraction"] = carbonmix
 
     with open(out_psi,'w') as f:
         json.dump(newpsi, f, indent=4)
@@ -102,7 +105,7 @@ def run_PrismSPECT(psi_filepath, run_name=None, overwrite=True, delete_aux=True,
 
     return output_dir
 
-def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_spherical_atbase.psi", shellpsi="data/inputs/templates/shell_planar_atbase_rhoR.psi", directory=None, run_name=None, reuse_run=None, overwrite=False, delete_prism=False, verbose=False):
+def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs/templates/core_spherical_atbase.psi", shellpsi="data/inputs/templates/shell_planar_atbase_rhoR.psi", directory=None, run_name=None, reuse_run=None, overwrite=False, delete_prism=False, verbose=False):
     """
     Runs the reduced spherical core + shell model. 
     Wrapper function for running core simulation and shell simulations to obtain
@@ -121,6 +124,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
         Electron density in cm^-3
     rc: float
         Plasma size (radius) in cm
+    carbonmix: float, optional
+        Carbon number fraction
     ts: float
         Electron temperature in eV
     ns: float
@@ -182,7 +187,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
             rundirectory.mkdir(parents=True, exist_ok=True)
 
             # Generate temporary PrismSPECT input deck .psi for core and shell.
-            psi_core_path = write_psi(tc, nc, rc, template_psi=corepsi, out_psi=rundirectory / "temp_core.psi")
+            psi_core_path = write_psi(tc, nc, rc, carbonmix, template_psi=corepsi, out_psi=rundirectory / "temp_core.psi")
             psi_shell_path = write_psi(ts, ns, rhoR, template_psi=shellpsi, out_psi=rundirectory / "temp_shell.psi")
 
             # This will now run PrismSPECT twice, first for the core simulation then the shell simulation. The output files (not deleted by delete_aux):
@@ -190,7 +195,8 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
             # directory/run_name/run_name.psr - main results file
             # directory/run_name/results/spect.ppd - output spectra 
             if verbose:
-                print(f"Running PrismSPECT with params:\ntc={tc:.0f}, nc={nc:.4g}, rc={rc}, ts={ts:.1f}, ns={ns:.1f}, rhoR={rhoR:.4f}")
+                carbonmix_str = f"{carbonmix:.2f}" if carbonmix is not None else "None"
+                print(f"Running PrismSPECT with params:\ntc={tc:.0f}, nc={nc:.4g}, rc={rc}, C_mix={carbonmix_str}, ts={ts:.1f}, ns={ns:.1f}, rhoR={rhoR:.4f}")
             core_path = run_PrismSPECT(psi_core_path, run_name="temp_core", overwrite=True, delete_aux=True, verbose=verbose)
             shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
@@ -237,14 +243,4 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, corepsi="data/inputs/templates/core_
     return nu_core, eid_y
 
 if __name__ == "__main__":
-    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/20260311/", run_name = "testsample", overwrite=False, delete_prism=True, verbose=False)
-
-    t_start = time.time()
-    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
-    t_end = time.time()
-    print(f"Time taken termsplit: {t_end - t_start:.2f} seconds")
-
-    t_start = time.time()
-    xmodel, ymodel = reduced_model(tc=1000, nc=1e24, rc=40e-4, ts=400, ns=25, rhoR=0.09, corepsi="data/inputs/templates/core_spherical_atbase_leastdetailed.psi", directory = "data/", run_name = "testsample", overwrite=True, delete_prism=True, verbose=False)
-    t_end = time.time()
-    print(f"Time taken least detailed: {t_end - t_start:.2f} seconds")
+    core_psi_path = write_psi(1000, 1e22, 0.04, carbonmix=0.2753, template_psi="data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi", out_psi="test_core.psi")
