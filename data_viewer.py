@@ -12,15 +12,13 @@ matplotlib.rcParams.update({'font.size': 14})
 folder = Path("data/exp/98252_xrf4_Mar2026/")
 xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
 xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 142.79, 252.46, 331.98])
-fig, ax = plt.subplots()
-ax.plot(np.arange(len(ydata)), xdata)
-plt.show()
-ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
-ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
-
-# fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
-fitting_mask   = [(3450,3745), (3810,4020), (4070,4600)]
+# fig, ax = plt.subplots()
+# ax.plot(np.arange(len(ydata)), xdata)
+# plt.show()
+# ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
+ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
+ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
+fitting_mask   = [(3450,3740), (3830,4000), (4070,4700)]
 
 if True:
     fig, ax = plt.subplots()

@@ -17,7 +17,7 @@ np.random.seed(0)
 
 calibration_table = {
     "98252t4f2": [138., 247.0, 329.],  
-    "98252t4f3": [144, 254, 335],  
+    "98252t4f3": [144, 253, 333],  
     "98252t4f4": [134., 244.0, 329.],  
     "98263t4f2": [142.2, 250, 330],
     "98263t4f3": [142.2, 254, 339],
@@ -44,7 +44,7 @@ def load_srs3p2(filepath):
 def plot_chain(sampler, params, burn=0, thin=1, title=""):
     samples = sampler.get_chain(discard=burn, thin=thin)
     # Plotting the sampling chain for each walker 
-    fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+    fig, axes = plt.subplots(len(params), figsize=(10, 7), sharex=True)
     for i, param in enumerate(params):
         ax = axes[i]
         ax.plot(samples[:, :, i], "k", alpha=0.3)
@@ -60,16 +60,16 @@ def plot_chain(sampler, params, burn=0, thin=1, title=""):
 def reducedchisquared(a, ydata, ymodel, ysigma):
     return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
 
-def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/",  verbose=False):
-    tc_kev, lognc, ts_kev, rhoR = params
+def log_likelihood(params, xdata, ydata, ysigma, corepsi, shellpsi, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/",  verbose=False):
+    tc_kev, lognc, carbonmix, ts_kev, rhoR = params
     nc = 10**lognc
     tc = tc_kev * 1e3
     ts = ts_kev * 1e3
     
-    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-                                   corepsi="data/inputs/templates/core_spherical_fac.psi",
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, carbonmix=carbonmix,
+                                   corepsi=corepsi, shellpsi=shellpsi,
                                    reuse_run=reuse_run, directory=directory, 
-                                   run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
+                                   run_name=f"sample_{tc_kev:.3f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
                                    overwrite=False, delete_prism=True, verbose=verbose)
     
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
@@ -104,26 +104,29 @@ def log_prior(params, params_bounds):
     else:
         return -np.inf 
 
-def log_probability(params, params_bounds, **likelihood_kwargs): # xdata, ydata, ysigma, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/", verbose=False
+def log_probability(params, params_bounds, **likelihood_kwargs):
     lp = log_prior(params=params, params_bounds=params_bounds)
     if not np.isfinite(lp):
         return -np.inf
     return lp + log_likelihood(params=params, **likelihood_kwargs)
 
 if __name__ == "__main__":
-    # 1. Load experimental data
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-    xdata = calibrate_x(ydata, ref_eV=[3683,3935,4150], ref_idx=calibration_table["98252t4f3"])
+    xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 142.79, 252.46, 331.98])
+    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
+    ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1.0, 'lognc': 24.46, 'ts_kev': 0.5, 'rhoR': 0.08}
-    params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.05, 0.17)}
-    fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
+    params_initial = {'tc_kev': 1.10, 'lognc': 24.32, 'carbonmix': 0.1, 'ts_kev': 0.3, 'rhoR': 0.09}
+    params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'carbonmix': (0.01, 0.4), 'ts_kev': (0.1, 0.6), 'rhoR': (0.04, 0.17)}
+    fitting_mask   = [(3450,3740), (3830,4000), (4070,4700)]
     nwalkers       = 10
     nsteps         = 120
-    directory      = "data/mcmc_run_15/"
-    savefile       = "mcmc_run_15.h5"
+    corepsi        = "data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi"
+    shellpsi       = "data/inputs/templates/shell_planar_atbase_rhoR.psi"
+    directory      = "data/mcmc_run_17/"
+    savefile       = "mcmc_run_17.h5"
     reuse_run      = None 
     verbose        = True
 
@@ -135,10 +138,14 @@ if __name__ == "__main__":
     backend  = emcee.backends.HDFBackend(savefile)
     backend.reset(nwalkers, ndim)
 
-    with Pool(processes=5) as pool:
+    with Pool(processes=10) as pool:
         sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, 
                                          args=(params_bounds,), 
-                                         kwargs={"xdata": xdata, "ydata": ydata, "ysigma": ysigma, "fitting_mask": fitting_mask, "directory": directory, "reuse_run": reuse_run, "verbose": verbose},
+                                         kwargs={"xdata": xdata, "ydata": ydata, "ysigma": ysigma, 
+                                                 "fitting_mask": fitting_mask, 
+                                                 "corepsi": corepsi, "shellpsi": shellpsi,  
+                                                 "directory": directory, "reuse_run": reuse_run, 
+                                                 "verbose": verbose},
                                          backend=backend, pool=pool)
         sampler.run_mcmc(pos, nsteps, progress=True)
 
@@ -166,7 +173,7 @@ if __name__ == "__main__":
         result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
         q = np.diff(result_values)
         print(f"{labels[i]} = {result_values[1]:.2f} + {q[0]:.2f} - {q[1]:.2f}")
-        sigma_bounds.append((result_values[0], result_values[2])) # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
+        sigma_bounds.append((result_values[0], result_values[2])) # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
 
     directory = Path(directory)
     fig, ax = plt.subplots()
