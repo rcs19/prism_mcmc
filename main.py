@@ -35,10 +35,10 @@ def load_srs3p2(filepath):
             filepath_sigma = filepath.parent / (filepath.stem[:-6] + "_sigma" + filepath.suffix)
         else:
             filepath_sigma = filepath.parent / (filepath.stem + "_sigma" + filepath.suffix)
+        ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
     except FileNotFoundError:
         print(f"Sigma file not found for {filepath}. Returning ysigma as ones.")
         ysigma = np.ones_like(ydata)
-    ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
     return xdata, ydata, ysigma
 
 def plot_chain(sampler, params, burn=0, thin=1, title=""):
@@ -67,10 +67,10 @@ def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run=
     ts = ts_kev * 1e3
     
     xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-    corepsi="data/inputs/templates/core_spherical_fac.psi",
-    reuse_run=reuse_run, directory=directory, 
-    run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
-    overwrite=False, delete_prism=True, verbose=verbose)
+                                   corepsi="data/inputs/templates/core_spherical_fac.psi",
+                                   reuse_run=reuse_run, directory=directory, 
+                                   run_name=f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
+                                   overwrite=False, delete_prism=True, verbose=verbose)
     
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
     ymodel_interp = np.interp(xdata, xmodel, ymodel) * np.max(ydata)/np.max(ymodel) # scale model to data
@@ -83,19 +83,22 @@ def log_likelihood(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run=
         ydata_fit = ydata[mask]
         ymodel_interp_fit = ymodel_interp[mask]
         ysigma_fit = ysigma[mask]
+    else:
+        ydata_fit = ydata
+        ymodel_interp_fit = ymodel_interp
+        ysigma_fit = ysigma
 
     # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
     res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
     scalar = res.x
     return -0.5 * np.sum(((ydata_fit - scalar*ymodel_interp_fit) / ysigma_fit)**2 + np.log(2 * np.pi * ysigma_fit**2))
 
-def log_prior(params):
+def log_prior(params, params_bounds):
     """
     If all params are within bounds return 0.0 else return -np.inf
     This is equivalent to a prior with uniform/constant probability within the bounds and a zero probability outside (log(1)=0 and log(0)=-inf) 
     """
     tc_kev, lognc, ts_kev, rhoR = params
-    global params_bounds
     if (params_bounds['tc_kev'][0] < tc_kev < params_bounds['tc_kev'][1] and
         params_bounds['lognc'][0] < lognc < params_bounds['lognc'][1] and
         params_bounds['ts_kev'][0] < ts_kev < params_bounds['ts_kev'][1] and
@@ -104,31 +107,31 @@ def log_prior(params):
     else:
         return -np.inf 
 
-def log_probability(params, xdata, ydata, ysigma, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/", verbose=False):
-    lp = log_prior(params)
+def log_probability(params, params_bounds, **likelihood_kwargs): # xdata, ydata, ysigma, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/", verbose=False
+    lp = log_prior(params, params_bounds=params_bounds)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(params, xdata, ydata, ysigma, fitting_mask=fitting_mask, reuse_run=reuse_run, directory=directory, verbose=verbose)
+    return lp + log_likelihood(params, **likelihood_kwargs)
 
 if __name__ == "__main__":
     # 1. Load experimental data
     folder = Path("data/exp/98252_xrf4_Mar2026/")
-    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f4/sis_f4_no_cr.txt")
-    xdata += 21
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
+    xdata = calibrate_x(ydata, ref_eV=[3683,3935,4150], ref_idx=calibration_table["98252t4f3"])
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.0, 'lognc': 24.46, 'ts_kev': 0.5, 'rhoR': 0.08}
     params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.05, 0.17)}
+    fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
     nwalkers       = 10
     nsteps         = 120
-    fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
     verbose        = True
     directory      = "data/mcmc_run_13/"
     savefile       = "mcmc_run_13.h5"
     reuse_run      = None
 
     # Initial positions of walkers
-    pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, 4) # n walkers, 4 parameters, randomise initial positions slightly
+    pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
     nwalkers, ndim  = pos.shape
 
     # Initialise sampler with HDFBackend to save results to file
@@ -136,21 +139,21 @@ if __name__ == "__main__":
     backend.reset(nwalkers, ndim)
 
     with Pool(processes=5) as pool:
-        sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(xdata, ydata, ysigma, fitting_mask, reuse_run, directory, verbose), backend=backend, pool=pool)
+        sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(params_bounds, xdata, ydata, ysigma, fitting_mask, reuse_run, directory, verbose), backend=backend, pool=pool)
         sampler.run_mcmc(pos, nsteps, progress=True)
 
-    # Results
-    # -------
+    # Results #
+    # ------- #
     try:
         tau = sampler.get_autocorr_time()
         print(tau)
     except emcee.autocorr.AutocorrError as e:
         print(str(e))
 
-    labels = ["Tc", "log(nc)", "Ts", "$\\rho$R"]
+    labels = list(params_initial.keys())
 
     plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
-    plot_chain(sampler, params=labels, burn=50, thin=1, title="Burned and thinned")
+    # plot_chain(sampler, params=labels, burn=50, thin=1, title="Burned and thinned")
 
     # Corner plot
     flat_samples = sampler.get_chain(flat=True)
@@ -162,22 +165,19 @@ if __name__ == "__main__":
     for i in range(ndim):
         result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
         q = np.diff(result_values)
-        # print(f"{labels[i]} = ${result_values[1]}_{{{q[0]}}}^{{{q[1]}}}$")
         print(f"{labels[i]} = {result_values[1]:.2f} + {q[0]:.2f} - {q[1]:.2f}")
-
-        # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
-        sigma_bounds.append((result_values[0], result_values[2]))
+        sigma_bounds.append((result_values[0], result_values[2])) # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
 
     directory = Path(directory)
     fig, ax = plt.subplots()
 
     for file in directory.rglob("*.txt"):
         file_params = file.stem.split("_")[1:-1] # extract parameters from filename
-        tc_kev, lognc, ts_kev, rhoR = map(float, file_params)
-        if (sigma_bounds[0][0] < tc_kev < sigma_bounds[0][1] and sigma_bounds[1][0] < lognc < sigma_bounds[1][1] and sigma_bounds[2][0] < ts_kev < sigma_bounds[2][1] and sigma_bounds[3][0] < rhoR < sigma_bounds[3][1]):
+        if all(low < val < high for val, (low, high) in zip(map(float, file_params), sigma_bounds)):
             xmodel, ymodel, ymodel_bf = np.loadtxt(file, unpack=True)
             # mask ydata and ymodel_interp 
             ymodel = gaussian_broadening(xmodel, ymodel, R=150)
+            ymodel_bf = gaussian_broadening(xmodel, ymodel_bf, R=150)
             norm_factor     = np.max(ydata)/np.max(ymodel)
             ymodel_interp   = np.interp(xdata, xmodel, ymodel) * norm_factor
             ymodel_bf       = ymodel_bf * norm_factor
@@ -189,6 +189,10 @@ if __name__ == "__main__":
                 ydata_fit = ydata[mask]
                 ymodel_interp_fit = ymodel_interp[mask]
                 ysigma_fit = ysigma[mask]
+            else:
+                ydata_fit = ydata
+                ymodel_interp_fit = ymodel_interp
+                ysigma_fit = ysigma
 
             # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
             res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
