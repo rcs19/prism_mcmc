@@ -113,14 +113,14 @@ def log_probability(params, params_bounds, **likelihood_kwargs):
 if __name__ == "__main__":
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-    xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 142.79, 252.46, 331.98])
+    xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
     ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
     ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1.10, 'lognc': 24.32, 'carbonmix': 0.1, 'ts_kev': 0.3, 'rhoR': 0.09}
+    params_initial = {'tc_kev': 1.08, 'lognc': 24.29, 'carbonmix': 0.13, 'ts_kev': 0.3, 'rhoR': 0.1}
     params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'carbonmix': (0.01, 0.4), 'ts_kev': (0.1, 0.6), 'rhoR': (0.04, 0.17)}
-    fitting_mask   = [(3450,3740), (3830,4000), (4070,4700)]
+    fitting_mask   = [(3520,3750), (3830,4000), (4070,4600)]
     nwalkers       = 10
     nsteps         = 120
     corepsi        = "data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi"
