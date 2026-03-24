@@ -223,7 +223,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs
 	
     # Save emergent intensity distribution to file
     eid = np.array([nu_core, eid_y, bf_core]).T
-    np.savetxt(directory / f"{run_name}_eid.txt", eid)
+    np.savetxt(directory / f"{run_name}_eid.txt", eid, fmt="%.7e")
 
     if delete_prism:
         subprocess.run(f'rm -r {directory}/{run_name}', shell=True)
