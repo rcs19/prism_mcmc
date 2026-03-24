@@ -6,21 +6,7 @@ from matplotlib import pyplot as plt    # type: ignore
 from scipy.optimize import minimize_scalar  # type: ignore
 from pathlib import Path
 from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights        # type: ignore
-from main import reducedchisquared, load_srs3p2, calibration_table  # type: ignore
-
-def plot_chain(sampler, params, burn=0, thin=1, title=""):
-    samples = sampler.get_chain(discard=burn, thin=thin)
-    # Plotting the sampling chain for each walker 
-    fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
-    for i, param in enumerate(params):
-        ax = axes[i]
-        ax.plot(samples[:, :, i], "k", alpha=0.3)
-        ax.set_xlim(0, len(samples))
-        ax.set_ylabel(param)
-        ax.yaxis.set_label_coords(-0.1, 0.5)
-    axes[-1].set_xlabel("Step Number")
-    axes[0].set_title(title)
-    fig.subplots_adjust(hspace=0.)
+from main import plot_chain, reducedchisquared, load_srs3p2, calibration_table  # type: ignore
 
 if __name__ == "__main__":
     # 1. Load experimental data
@@ -75,7 +61,6 @@ if __name__ == "__main__":
 
     for file in directory.rglob("*.txt"):
         file_params = file.stem.split("_")[1:-1] # extract parameters from filename
-        tc_kev, lognc, ts_kev, rhoR = map(float, file_params)
         if all(low < val < high for val, (low, high) in zip(map(float, file_params), sigma_bounds)):
             xmodel, ymodel, ymodel_bf = np.loadtxt(file, unpack=True)
             # mask ydata and ymodel_interp 
