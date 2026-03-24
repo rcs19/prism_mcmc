@@ -198,3 +198,5 @@ archive/
 *.zip
 data/exp/
 data/lineratio/
+.vscode/
+pyrightconfig.json
