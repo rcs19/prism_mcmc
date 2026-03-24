@@ -10,16 +10,17 @@ from main import load_srs3p2, calibration_table, reducedchisquared
 matplotlib.rcParams.update({'font.size': 14})
 
 folder = Path("data/exp/98252_xrf4_Mar2026/")
-# xdata, ydata, ysigma = load_srs3p2(folder / "srs_f3_sq/srs_f3_sq_SRS_8_no_cr.txt")
-xdata, ydata, ysigma = load_srs3p2(folder / "sis_f4/sis_f4_no_cr.txt")
-xdata += 20
-# xdata = calibrate_x(xdata, ref_eV=[3683,3934,4150], ref_idx=calibration_table["98252t4f3"])
-# ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-# ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
-# ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
+xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
+xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 142.79, 252.46, 331.98])
+fig, ax = plt.subplots()
+ax.plot(np.arange(len(ydata)), xdata)
+plt.show()
+ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
+ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3735), (3800,np.max(xdata))], multiplier=0.5)
+ysigma = adjust_weights(xdata, ysigma, regions=[(3560,3750), (3830,3990),(4070,4400)], multiplier=0.5)
 
 # fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
-fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
+fitting_mask   = [(3450,3745), (3810,4020), (4070,4600)]
 
 if True:
     fig, ax = plt.subplots()
