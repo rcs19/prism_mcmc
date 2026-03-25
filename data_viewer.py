@@ -12,15 +12,10 @@ matplotlib.rcParams.update({'font.size': 14})
 folder = Path("data/exp/98252_xrf4_Mar2026/")
 xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
 xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
-# fig, ax = plt.subplots()
-# ax.plot(np.arange(len(ydata)), xdata)
-# plt.show()
-# ysigma = adjust_weights(xdata, ysigma, regions=[(3900,3970)], multiplier=0.5)
-ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
-ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
-fitting_mask   = [(3520,3750), (3830,4000), (4070,4600)]
+ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.3)
+fitting_mask   = [(3580,3750), (3830,4050),]
 
-if True:
+if False:
     fig, ax = plt.subplots()
     ax.plot(xdata, ydata, label="Frame 3")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="black", alpha=0.2, label="$\\sigma$ Frame 3")
@@ -39,21 +34,30 @@ if True:
     ax.legend()
     plt.show()
 
-if False:
+if True:
+    folder = Path("data/exp/98252_xrf4_Mar2026/")
+    xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
+    xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
+    fitting_mask   = [(3600,3750), (3830,4000), (4070,4500)]
+
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params = {'tc_kev': 0.97, 'lognc': 23.75, 'ts_kev': 0.25, 'rhoR': 0.14}
-    fitting_mask   = [(3550,3745), (3810,4000), (4070,4600)]
+    params = {'tc_kev': 1.09, 'lognc': 24.29, 'carbonmix': 0.17, 'ts_kev': 0.27, 'rhoR': 0.1}
+    fitting_mask   = [(3600,3750), (3830,4000), (4070,4500)]
+    corepsi        = "data/inputs/templates/core_spherical_fac_DArC.psi"
+    shellpsi       = "data/inputs/templates/shell_planar_atbase_rhoR.psi"
+
     directory = "data/prismspect_outputs/"
-    tc_kev, lognc, ts_kev, rhoR = params.values()
+    tc_kev, lognc, carbonmix, ts_kev, rhoR = params.values()
     nc = 10**lognc
     tc = tc_kev * 1e3
     ts = ts_kev * 1e3
     run_name = f"sample_{tc_kev:.2f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}"
 
-    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, 
-    corepsi="data/inputs/templates/core_spherical_fac.psi",
-    reuse_run=None, directory=directory, run_name=run_name, 
-    overwrite=False, delete_prism=False, verbose=True)
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=20, rhoR=rhoR, carbonmix=carbonmix, 
+                                   shellpsi=shellpsi,
+                                   corepsi=corepsi,
+                                   reuse_run=None, directory=directory, run_name=run_name, 
+                                   overwrite=False, delete_prism=False, verbose=True)
     xmodel, ymodel, ymodel_bf = np.loadtxt(Path(directory) / (run_name + "_eid.txt"), unpack=True)
     ymodel = gaussian_broadening(xmodel, ymodel, R=150)
     norm_factor     = np.max(ydata)/np.max(ymodel)  
