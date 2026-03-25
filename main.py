@@ -1,17 +1,17 @@
-import numpy as np          # type: ignore
-import pandas as pd         # type: ignore
-import corner               # type: ignore
-import emcee                # type: ignore
+import numpy as np          
+import pandas as pd         
+import corner               
+import emcee                
 
 from time import time
 from multiprocessing import Pool
 from pathlib import Path
-from matplotlib import pyplot as plt            # type: ignore
-from scipy.optimize import minimize_scalar      # type: ignore
+from matplotlib import pyplot as plt            
+from scipy.optimize import minimize_scalar      
 
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights    # type: ignore
-from src.lineratio import get_te_ne                                                             # type: ignore         
-from src.prism_tools import reduced_model                                                       # type: ignore                               
+from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights    
+from src.lineratio import get_te_ne                                                                      
+from src.prism_tools import reduced_model                                                                                      
 
 np.random.seed(0)
 
@@ -66,7 +66,7 @@ def log_likelihood(params, xdata, ydata, ysigma, corepsi, shellpsi, fitting_mask
     tc = tc_kev * 1e3
     ts = ts_kev * 1e3
     
-    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=25, rhoR=rhoR, carbonmix=carbonmix,
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=20, rhoR=rhoR, carbonmix=carbonmix,
                                    corepsi=corepsi, shellpsi=shellpsi,
                                    reuse_run=reuse_run, directory=directory, 
                                    run_name=f"sample_{tc_kev:.3f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.2f}_{rhoR:.3f}", 
@@ -114,19 +114,17 @@ if __name__ == "__main__":
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
     xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
-    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
-    ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.08, 'lognc': 24.29, 'carbonmix': 0.13, 'ts_kev': 0.3, 'rhoR': 0.1}
     params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'carbonmix': (0.01, 0.4), 'ts_kev': (0.1, 0.6), 'rhoR': (0.04, 0.17)}
-    fitting_mask   = [(3520,3750), (3830,4000), (4070,4600)]
+    fitting_mask   = [(3580,3750), (3830,4050),]
     nwalkers       = 10
-    nsteps         = 120
+    nsteps         = 100
     corepsi        = "data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi"
     shellpsi       = "data/inputs/templates/shell_planar_atbase_rhoR.psi"
-    directory      = "data/mcmc_run_17/"
-    savefile       = "mcmc_run_17.h5"
+    directory      = "data/mcmc_run_20/"
+    savefile       = "mcmc_run_20.h5"
     reuse_run      = None 
     verbose        = True
 
