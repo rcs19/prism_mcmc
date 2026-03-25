@@ -9,7 +9,7 @@ from pathlib import Path
 from matplotlib import pyplot as plt            
 from scipy.optimize import minimize_scalar      
 
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights    
+from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
 from src.lineratio import get_te_ne                                                                      
 from src.prism_tools import reduced_model                                                                                      
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # Corner plot
     flat_samples = sampler.get_chain(flat=True)
-    fig = corner.corner(flat_samples, labels=labels,)
+    corner_fig = corner.corner(flat_samples, labels=labels,)
 
     # Get values which fall within 1 sigma (68% percentile)
     inds = np.arange(flat_samples.shape[0]) # sample index (for filenames)
@@ -173,53 +173,59 @@ if __name__ == "__main__":
         print(f"{labels[i]} = {result_values[1]:.2f} + {q[0]:.2f} - {q[1]:.2f}")
         sigma_bounds.append((result_values[0], result_values[2])) # Samples have file format f"sample_{tc_kev:.2f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.2f}_{rhoR:.3f}" - obtain the bounds for these parameters from the 16 and 84 percentile values and filter the samples accordingly in the next for loop
 
-    directory = Path(directory)
     fig, ax = plt.subplots()
 
-    for file in directory.rglob("*.txt"):
+    for file in Path(directory).rglob("*.txt"):
         file_params = file.stem.split("_")[1:-1] # extract parameters from filename
         if all(low < val < high for val, (low, high) in zip(map(float, file_params), sigma_bounds)):
-            xmodel, ymodel, ymodel_bf = np.loadtxt(file, unpack=True)
-            # mask ydata and ymodel_interp 
-            ymodel = gaussian_broadening(xmodel, ymodel, R=150)
-            ymodel_bf = gaussian_broadening(xmodel, ymodel_bf, R=150)
+            # Load model spectrum
+            xmodel, ymodel       = np.loadtxt(file, usecols=(0, 1), unpack=True)
+            try:
+                ymodel_bf, ymodel_ff = np.loadtxt(file, usecols=(2, 3), unpack=True)
+            except ValueError:
+                ymodel_bf, ymodel_ff = np.zeros_like(ymodel), np.zeros_like(ymodel)
+
+            # Broaden according to instrument spectral resolving power R 
+            ymodel, ymodel_bf, ymodel_ff = gaussian_broadening(xmodel, ymodel, R=150), gaussian_broadening(xmodel, ymodel_bf, R=150), gaussian_broadening(xmodel, ymodel_ff, R=150)
+
+            # Must normalise to experimental scale before obtaining best fit amplitude using minimize_scalar (otherwise it doesn't work)
             norm_factor     = np.max(ydata)/np.max(ymodel)
             ymodel_interp   = np.interp(xdata, xmodel, ymodel) * norm_factor
-            ymodel_bf       = ymodel_bf * norm_factor
-
-            if fitting_mask is not None:
-                mask = np.zeros_like(xdata, dtype=bool)
-                for low, high in fitting_mask:
-                    mask |= (xdata > low) & (xdata < high)
-                ydata_fit = ydata[mask]
-                ymodel_interp_fit = ymodel_interp[mask]
-                ysigma_fit = ysigma[mask]
-            else:
-                ydata_fit = ydata
-                ymodel_interp_fit = ymodel_interp
-                ysigma_fit = ysigma
+            ymodel_bf, ymodel_ff = ymodel_bf*norm_factor, ymodel_ff*norm_factor
+                
+            ydata_fit         = apply_fitting_mask(xdata, ydata, fitting_mask)
+            ymodel_interp_fit = apply_fitting_mask(xdata, ymodel_interp, fitting_mask)
+            ysigma_fit        = apply_fitting_mask(xdata, ysigma, fitting_mask)
 
             # need to find best fit amplitude first using scipy.optimize.minimize_scalar 
             res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
             scalar = res.x
+
+            # add to plot
             ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
-            ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.05, label="Model B-F")
+            ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.05,)
+            ax.plot(xmodel, scalar*ymodel_ff, ls=":", color="red", alpha=0.05,)
     
     if fitting_mask is not None:
         for low, high in fitting_mask:
             ax.axvspan(low, high, color="grey", alpha=0.1)
             
-    ax.plot(xdata, ydata, color="black")
+    ax.plot(xdata, ydata, color="black", label="Data")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
-    ax.plot(np.nan, np.nan, color="red", alpha=0.2, label="Model")
+
+    # Dummy plots for label
+    ax.plot(np.nan, np.nan, color="red", alpha=0.5, label="Model")
+    ax.plot(np.nan, np.nan, ls="--", color="red", alpha=0.5, label="Model BF")
+    ax.plot(np.nan, np.nan, ls=":", color="red", alpha=0.05, label="Model FF")
+    ax.axvspan(np.nan, np.nan, color="grey", alpha=0.1, label="Fitting Mask")
+
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
-    x_min, x_max = xdata.min(), xdata.max()
 
-    # conversion functions
+    # Top time axis (conversion functions)
+    x_min, x_max = xdata.min(), xdata.max()
     to_ps = lambda x: (x - x_min) / (x_max - x_min) * 220
     to_energy = lambda ps: ps / 220 * (x_max - x_min) + x_min
-
     ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
     ax2.set_xlabel("Time (ps)")
 

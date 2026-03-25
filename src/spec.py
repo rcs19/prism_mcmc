@@ -183,7 +183,16 @@ def adjust_weights(xdata, ysigma, regions, multiplier=0.5):
     
     return ysigma_adjusted
 
-
+def apply_fitting_mask(xdata, ydata, fitting_mask):
+    if fitting_mask is not None:
+        mask = np.zeros_like(xdata, dtype=bool)
+        for low, high in fitting_mask:
+            mask |= (xdata > low) & (xdata < high)
+        ydata_masked = ydata[mask]
+        return ydata_masked
+    else:
+        return ydata
+                
 if __name__ == "__main__":
     from pathlib import Path
     import matplotlib.pyplot as plt
