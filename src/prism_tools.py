@@ -201,7 +201,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs
             shell_path = run_PrismSPECT(psi_shell_path, run_name="temp_shell", overwrite=True, delete_aux=True, verbose=verbose)
 
             # Load spectra and transmission from output files spect.ppd
-            nu_core, I_core, bf_core = np.loadtxt(core_path / "results/spect.ppd", comments="#", usecols=(0,1,12), unpack=True)
+            nu_core, I_core, bf_core, ff_core = np.loadtxt(core_path / "results/spect.ppd", comments="#", usecols=(0,1,12,14), unpack=True)
             nu_shell, I_shell, op_shell = np.loadtxt(shell_path / "results/spect.ppd", comments="#", usecols=(0,1,2), unpack=True) 
             break
         except FileNotFoundError as e:
@@ -219,26 +219,14 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs
 
     # Calculate emergent intensity distribution
     bf_core = bf_core * tr_shell_interp
+    ff_core = ff_core * tr_shell_interp
     eid_y = I_core * tr_shell_interp + I_shell_interp
 	
     # Save emergent intensity distribution to file
-    eid = np.array([nu_core, eid_y, bf_core]).T
-    np.savetxt(directory / f"{run_name}_eid.txt", eid, fmt="%.7e")
+    np.savetxt(directory / f"{run_name}_eid.txt", X=np.column_stack([nu_core, eid_y, bf_core, ff_core]), fmt="%.7e")
 
     if delete_prism:
         subprocess.run(f'rm -r {directory}/{run_name}', shell=True)
-
-    if False:
-        fig, ax = plt.subplots(nrows=2, sharex=True)
-        ax[0].plot(nu_core, I_core, label="Core spec")
-        ax[0].plot(nu_shell, I_shell, label="Shell spec")
-        ax_trans = ax[0].twinx()
-        ax_trans.plot(nu_shell, tr_shell, color="black", ls="--")
-        ax[1].plot(nu_core, eid_y, label="EID")
-        ax[1].plot(nu_shell, I_shell, label="Shell spec")
-        ax[0].legend()
-        ax[1].legend()
-        plt.show()
 
     return nu_core, eid_y
 
