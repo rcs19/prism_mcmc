@@ -200,3 +200,5 @@ data/exp/
 data/lineratio/
 .vscode/
 pyrightconfig.json
+mcmc_run_*/
+*.h5
