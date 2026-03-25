@@ -9,21 +9,25 @@ from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, ad
 from main import plot_chain, reducedchisquared, load_srs3p2, calibration_table  # type: ignore
 
 if __name__ == "__main__":
-    # 1. Load experimental data
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-    xdata = calibrate_x(ydata, ref_eV=[3683,3935,4150], ref_idx=calibration_table["98252t4f3"])
+    xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
+    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
+    ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
-    params_initial = {'tc_kev': 1.0, 'lognc': 24.46, 'ts_kev': 0.5, 'rhoR': 0.08}
-    params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'ts_kev': (0.2, 0.55), 'rhoR': (0.05, 0.17)}
-    fitting_mask   = [(3450,3745), (3810,4020), (4070,4400)]
+    params_initial = {'tc_kev': 1.08, 'lognc': 24.29, 'carbonmix': 0.13, 'ts_kev': 0.3, 'rhoR': 0.1}
+    params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'carbonmix': (0.01, 0.4), 'ts_kev': (0.1, 0.6), 'rhoR': (0.04, 0.17)}
+    fitting_mask   = [(3520,3750), (3830,4000), (4070,4600)]
     nwalkers       = 10
     nsteps         = 120
-    directory      = "data/mcmc_run_15/"
-    savefile       = "mcmc_run_15.h5"
+    corepsi        = "data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi"
+    shellpsi       = "data/inputs/templates/shell_planar_atbase_rhoR.psi"
+    directory      = "data/mcmc_run_17/"
+    savefile       = "mcmc_run_17.h5"
     reuse_run      = None 
     verbose        = True
+
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
@@ -39,9 +43,10 @@ if __name__ == "__main__":
         print(str(e))
 
     labels = list(params_initial.keys())
-
+    
     plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
-    plot_chain(sampler, params=labels, burn=80, thin=1, title="First 80 Samples Discarded")
+    burn = 50
+    plot_chain(sampler, params=labels, burn=burn, thin=1, title=f"First {burn} samples discarded")
 
     # Corner plot
     flat_samples = sampler.get_chain(flat=True, discard=80, thin=1)
@@ -86,7 +91,7 @@ if __name__ == "__main__":
             res = minimize_scalar(reducedchisquared, args=(ydata_fit, ymodel_interp_fit, ysigma_fit), bounds=(0.2, 1.5), method='bounded')
             scalar = res.x
             ax.plot(xdata, scalar*ymodel_interp, color="red", alpha=0.05)
-            ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.05, label="Model B-F")
+            ax.plot(xmodel, scalar*ymodel_bf, ls="--", color="red", alpha=0.05, )
 
     if fitting_mask is not None:
         for low, high in fitting_mask:
@@ -95,8 +100,10 @@ if __name__ == "__main__":
     ax.plot(xdata, ydata, color="black")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
     ax.plot(np.nan, np.nan, color="red", alpha=0.2, label="Model")
+    ax.plot(np.nan, np.nan, ls="--", color="red", alpha=0.05, label="Model B-F")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
+    ax.legend()
     x_min, x_max = xdata.min(), xdata.max()
 
     # conversion functions
