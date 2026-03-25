@@ -5,29 +5,27 @@ import emcee            # type: ignore
 from matplotlib import pyplot as plt    # type: ignore
 from scipy.optimize import minimize_scalar  # type: ignore
 from pathlib import Path
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights        # type: ignore
-from main import plot_chain, reducedchisquared, load_srs3p2, calibration_table  # type: ignore
+from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
+from main import plot_chain, reducedchisquared, load_srs3p2, calibration_table
 
 if __name__ == "__main__":
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
     xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
-    ysigma = adjust_weights(xdata, ysigma, regions=[(3600,3760), (3830,np.max(xdata)),], multiplier=0.075)
-    ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.4)
+    fitting_mask   = [(3600,3750), (3830,4000), (4070,4500)]
 
     # 2c. Define parameters, initial guess, bounds and MCMC settings
     params_initial = {'tc_kev': 1.08, 'lognc': 24.29, 'carbonmix': 0.13, 'ts_kev': 0.3, 'rhoR': 0.1}
     params_bounds  = {'tc_kev': (0.7, 1.4), 'lognc': (23.0, 25), 'carbonmix': (0.01, 0.4), 'ts_kev': (0.1, 0.6), 'rhoR': (0.04, 0.17)}
-    fitting_mask   = [(3520,3750), (3830,4000), (4070,4600)]
+    fitting_mask   = [(3600,3750), (3830,4000), (4070,4500)]
     nwalkers       = 10
-    nsteps         = 120
+    nsteps         = 80
     corepsi        = "data/inputs/templates/core_spherical_atbase_leastdetailed_DArC.psi"
     shellpsi       = "data/inputs/templates/shell_planar_atbase_rhoR.psi"
-    directory      = "data/mcmc_run_17/"
-    savefile       = "mcmc_run_17.h5"
+    directory      = "data/mcmc_run_19/"
+    savefile       = "mcmc_run_19.h5"
     reuse_run      = None 
     verbose        = True
-
 
     # Initial positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
@@ -49,7 +47,7 @@ if __name__ == "__main__":
     plot_chain(sampler, params=labels, burn=burn, thin=1, title=f"First {burn} samples discarded")
 
     # Corner plot
-    flat_samples = sampler.get_chain(flat=True, discard=80, thin=1)
+    flat_samples = sampler.get_chain(flat=True, discard=burn, thin=1)
     fig = corner.corner(flat_samples, labels=labels,)
 
     # Get values which fall within 1 sigma (68% percentile)
@@ -104,6 +102,7 @@ if __name__ == "__main__":
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
     ax.legend()
+    ax.set_xlim(xdata.min(), xdata.max())
     x_min, x_max = xdata.min(), xdata.max()
 
     # conversion functions
