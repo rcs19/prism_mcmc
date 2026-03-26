@@ -155,7 +155,7 @@ def get_ysigma(ydata, window=5):
 
     return ydata_sigma
 
-def adjust_weights(xdata, ysigma, regions, multiplier=0.5):
+def adjust_weights(xdata, ysigma, regions, multiplier=0.5, mode="outside"):
     """
     Adjust the weights (i.e., sigma) of data points in specified regions by multiplying with a given factor.
 
@@ -169,18 +169,25 @@ def adjust_weights(xdata, ysigma, regions, multiplier=0.5):
         List of tuples specifying ranges to adjust (e.g., [(start1, end1), (start2, end2)]).
     multiplier : float
         The factor by which to multiply the sigma values in the specified regions.
-
+    mode : str {"inside", "outside"}, optional
+        If "inside", sigma values inside the specified regions are multiplied by `multiplier`. If "outside", sigma values outside the specified regions are divided by `multiplier`.
     Returns
     -------
     ysigma_adjusted : array-like
         The adjusted sigma values.
     """
     ysigma_adjusted = np.array(ysigma)  
-    for start, end in regions:
-        mask = (xdata >= start) & (xdata <= end)
-        ysigma_adjusted[mask] *= multiplier
-    ysigma_adjusted = ysigma_adjusted / multiplier
-    
+
+    if mode == "inside":
+        for start, end in regions:
+            mask = (xdata >= start) & (xdata <= end)
+            ysigma_adjusted[mask] *= multiplier
+    elif mode == "outside":
+        for start, end in regions:
+            mask = (xdata >= start) & (xdata <= end)
+            ysigma_adjusted[mask] /= multiplier
+    else:
+        raise ValueError("Invalid mode. Use 'inside' or 'outside'.")
     return ysigma_adjusted
 
 def apply_fitting_mask(xdata, ydata, fitting_mask):
@@ -191,6 +198,7 @@ def apply_fitting_mask(xdata, ydata, fitting_mask):
         ydata_masked = ydata[mask]
         return ydata_masked
     else:
+        print("No fitting mask provided. Returning original data.")
         return ydata
                 
 if __name__ == "__main__":
