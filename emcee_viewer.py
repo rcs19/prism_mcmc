@@ -5,8 +5,21 @@ import emcee
 from matplotlib import pyplot as plt    
 from scipy.optimize import minimize_scalar  
 from pathlib import Path
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
-from main import plot_chain, reducedchisquared, load_srs3p2, calibration_table
+from src.spec import load_srs3p2, calibration_table, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask 
+
+def plot_chain(sampler, params, burn=0, thin=1, title=""):
+    samples = sampler.get_chain(discard=burn, thin=thin)
+    # Plotting the sampling chain for each walker 
+    fig, axes = plt.subplots(len(params), figsize=(10, 7), sharex=True)
+    for i, param in enumerate(params):
+        ax = axes[i]
+        ax.plot(samples[:, :, i], "k", alpha=0.3)
+        ax.set_xlim(0, len(samples))
+        ax.set_ylabel(param)
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+    axes[-1].set_xlabel("Step Number")
+    axes[0].set_title(title)
+    fig.subplots_adjust(hspace=0.)
 
 def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, weights, fitting_mask):
     """
@@ -14,6 +27,10 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
     1. Corner plot of MCMC samples after discarding n=burn samples
     2. Overlay of model outputs which fall within 1 sigma of the MCMC samples on top of experimental data
     """
+
+    def reducedchisquared(a, ydata, ymodel, ysigma):
+        return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
+
     directory = Path(directory)
     labels = list(params_initial.keys())
     ndim = len(labels)

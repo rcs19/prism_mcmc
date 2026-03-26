@@ -10,51 +10,11 @@ from matplotlib import pyplot as plt
 from scipy.optimize import minimize_scalar      
 
 from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
-from src.lineratio import get_te_ne                                                                      
+from src.lineratio import get_te_ne
 from src.prism_tools import reduced_model      
-from emcee_viewer import plot_all                                                                                
+from emcee_viewer import plot_all, plot_chain
 
 np.random.seed(0)
-
-calibration_table = {
-    "98252t4f2": [138., 247.0, 329.],  
-    "98252t4f3": [144, 253, 333],  
-    "98252t4f4": [134., 244.0, 329.],  
-    "98263t4f2": [142.2, 250, 330],
-    "98263t4f3": [142.2, 254, 339],
-}
-
-def load_srs3p2(filepath):
-    """
-    Load experimental data output by `srs3p2.pro`
-    """
-    # 1. Load experimental data
-    filepath = Path(filepath)
-    xdata, ydata = np.loadtxt(filepath, unpack=True)
-    try:
-        if "SRS" in filepath.stem:
-            filepath_sigma = filepath.parent / (filepath.stem[:-6] + "_sigma" + filepath.suffix)
-        else:
-            filepath_sigma = filepath.parent / (filepath.stem + "_sigma" + filepath.suffix)
-        ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
-    except FileNotFoundError:
-        print(f"Sigma file not found for {filepath}. Returning ysigma as ones.")
-        ysigma = np.ones_like(ydata)
-    return xdata, ydata, ysigma
-
-def plot_chain(sampler, params, burn=0, thin=1, title=""):
-    samples = sampler.get_chain(discard=burn, thin=thin)
-    # Plotting the sampling chain for each walker 
-    fig, axes = plt.subplots(len(params), figsize=(10, 7), sharex=True)
-    for i, param in enumerate(params):
-        ax = axes[i]
-        ax.plot(samples[:, :, i], "k", alpha=0.3)
-        ax.set_xlim(0, len(samples))
-        ax.set_ylabel(param)
-        ax.yaxis.set_label_coords(-0.1, 0.5)
-    axes[-1].set_xlabel("Step Number")
-    axes[0].set_title(title)
-    fig.subplots_adjust(hspace=0.)
 
 # MCMC Functions : log-likelihood, log-prior and log-probability  
 

@@ -6,6 +6,32 @@ from scipy.signal import butter, filtfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d
 
+calibration_table = {
+    "98252t4f2": [138., 247.0, 329.],  
+    "98252t4f3": [144, 253, 333],  
+    "98252t4f4": [134., 244.0, 329.],  
+    "98263t4f2": [142.2, 250, 330],
+    "98263t4f3": [142.2, 254, 339],
+}
+
+def load_srs3p2(filepath):
+    """
+    Load experimental data output by `srs3p2.pro`
+    """
+    # 1. Load experimental data
+    filepath = Path(filepath)
+    xdata, ydata = np.loadtxt(filepath, unpack=True)
+    try:
+        if "SRS" in filepath.stem:
+            filepath_sigma = filepath.parent / (filepath.stem[:-6] + "_sigma" + filepath.suffix)
+        else:
+            filepath_sigma = filepath.parent / (filepath.stem + "_sigma" + filepath.suffix)
+        ysigma = np.loadtxt(filepath_sigma, unpack=True)[1]
+    except FileNotFoundError:
+        print(f"Sigma file not found for {filepath}. Returning ysigma as ones.")
+        ysigma = np.ones_like(ydata)
+    return xdata, ydata, ysigma
+
 def continuum_butterworth(xdata, ydata, cutoff=5, multiplier=1.0, masks=[(3560,3780),(3790,4055),(4065,4300)]):
     """
     Find a continuum by masking emission lines and filtering/smoothing the remaining spectrum.
