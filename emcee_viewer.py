@@ -40,12 +40,17 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
     fig_corner = corner.corner(flat_samples, labels=labels,)
 
     # Get values which fall within 1 sigma (68% percentile)
-    sigma_bounds = []
+    sigma_bounds     = []
+    results     = {}
+    results_err = {}
+
     for i in range(ndim):
         result_values = np.percentile(flat_samples[:, i], [16, 50, 84])
         q = np.diff(result_values)
-        print(f"{labels[i]} = {result_values[1]:.2f} + {q[0]:.2f} - {q[1]:.2f}")
+        print(f"{labels[i]} = {result_values[1]:.3f} + {q[0]:.3f} - {q[1]:.3f}")
         sigma_bounds.append((result_values[0], result_values[2]))
+        results[labels[i]] = result_values[1]
+        results_err[labels[i]] = np.max(q)
 
     fig, ax = plt.subplots()
 
@@ -55,9 +60,13 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
         if all(low < val < high for val, (low, high) in zip(map(float, file_params), sigma_bounds)):
             xmodel, ymodel       = np.loadtxt(file, usecols=(0, 1), unpack=True)
             try:
-                ymodel_bf, ymodel_ff = np.loadtxt(file, usecols=(2, 3), unpack=True)
+                ymodel_bf = np.loadtxt(file, usecols=2)
             except ValueError:
-                ymodel_bf, ymodel_ff = np.zeros_like(ymodel), np.zeros_like(ymodel)
+                ymodel_bf = np.zeros_like(ymodel)
+            try:
+                ymodel_ff = np.loadtxt(file, usecols=3)
+            except ValueError:
+                ymodel_ff = np.zeros_like(ymodel)
 
             # Broaden according to instrument spectral resolving power R 
             ymodel, ymodel_bf, ymodel_ff = gaussian_broadening(xmodel, ymodel, R=150), gaussian_broadening(xmodel, ymodel_bf, R=150), gaussian_broadening(xmodel, ymodel_ff, R=150)
@@ -86,13 +95,15 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
             
     ax.plot(xdata, ydata, color="black", label="Data")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="gray", alpha=0.5, label="Weight")
-
+    text = "\n".join([f"{key} = {results[key]:.3g} ± {results_err[key]:.2g}" for key in results])
+    ax.text(0.95, 0.95, text, transform=ax.transAxes, fontsize=12, horizontalalignment='right', verticalalignment='top')
     # Dummy plots for label
     ax.plot(np.nan, np.nan, color="red", alpha=0.5, label="Model")
     ax.plot(np.nan, np.nan, ls="--", color="red", alpha=0.5, label="Model BF")
     ax.plot(np.nan, np.nan, ls=":", color="red", alpha=0.05, label="Model FF")
     ax.axvspan(np.nan, np.nan, color="grey", alpha=0.1, label="Fitting Mask")
 
+    ax.set_xlim(xdata.min(), xdata.max())
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
 
@@ -103,12 +114,10 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
     ax2 = ax.secondary_xaxis("top", functions=(to_ps, to_energy))
     ax2.set_xlabel("Time (ps)")
 
-    plt.show()
-
 if __name__ == "__main__":
 
-    # 1. Load input deck ./data/inputs/mcmc_run_20.py
-    from data.inputs.mcmc_run_20 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    # 1. Load input deck "mcmc_run_XX.py"
+    from mcmc_saves.mcmc_run_19 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
@@ -132,3 +141,6 @@ if __name__ == "__main__":
     plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
     burn = 50
     plot_chain(sampler, params=labels, burn=burn, thin=1, title=f"First {burn} samples discarded")
+
+    plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, weights, fitting_mask)
+    plt.show()
