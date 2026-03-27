@@ -9,7 +9,7 @@ from pathlib import Path
 from matplotlib import pyplot as plt            
 from scipy.optimize import minimize_scalar      
 
-from src.spec import continuum_butterworth, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
+from src.spec import load_srs3p2, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
 from src.lineratio import get_te_ne
 from src.prism_tools import reduced_model      
 from emcee_viewer import plot_all, plot_chain
