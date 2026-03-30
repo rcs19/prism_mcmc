@@ -9,7 +9,7 @@ from pathlib import Path
 from matplotlib import pyplot as plt            
 from scipy.optimize import minimize_scalar      
 
-from src.spec import load_srs3p2, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask
+from src.spec import load_srs3p2, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask, generate_gaussian_weights
 from src.lineratio import get_te_ne
 from src.prism_tools import reduced_model      
 from emcee_viewer import plot_all, plot_chain
@@ -22,7 +22,15 @@ def reducedchisquared(a, ydata, ymodel, ysigma):
     return np.sum(((ydata - a*ymodel) / ysigma)**2) / (len(ydata)-4)
 
 def log_likelihood(params, xdata, ydata, ysigma, corepsi, shellpsi, fitting_mask = None, reuse_run=None, directory="data/mcmc_run/",  verbose=False):
-    tc_kev, lognc, carbonmix, ts_kev, rhoR = params
+    try:
+        tc_kev, lognc, carbonmix, ts_kev, rhoR = params
+    except ValueError as e:
+        try:
+            tc_kev, lognc, ts_kev, rhoR = params
+            carbonmix = None
+        except ValueError as e:
+            raise ValueError(f"Expected 4 or 5 parameters but got {len(params)}. Error: {str(e)}")
+        
     nc = 10**lognc
     tc = tc_kev * 1e3
     ts = ts_kev * 1e3
@@ -64,13 +72,15 @@ def log_probability(params, params_bounds, **likelihood_kwargs):
 
 if __name__ == "__main__":
     # 1. Load input deck ./data/inputs/mcmc_run_20.py
-    from data.inputs.mcmc_run_20 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    from data.inputs.mcmc_run_22 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
     xdata = calibrate_x(ydata, ref_eV=ref_eV, ref_idx=ref_idx)
     if weights is not None:
         print("Using weights")
+        gauss_weights = generate_gaussian_weights(xdata, centers=weights["centers"], sigmas=weights["sigmas"], amplitude=weights["amplitude"], baseline=weights["baseline"], n=weights["n"])
+        ysigma = ysigma / gauss_weights
 
     # 2b. Initialise positions of walkers
     pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
@@ -81,7 +91,7 @@ if __name__ == "__main__":
     backend.reset(nwalkers, ndim)
 
     # 3. Run MCMC sampling given inputs defined in step 1
-    with Pool(processes=10) as pool:
+    with Pool(processes=5) as pool:
         sampler  = emcee.EnsembleSampler(nwalkers, ndim, log_probability, 
                                          args=(params_bounds,), 
                                          kwargs={"xdata": xdata, "ydata": ydata, "ysigma": ysigma, 
