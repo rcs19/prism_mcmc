@@ -117,7 +117,7 @@ def plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, wei
 if __name__ == "__main__":
 
     # 1. Load input deck "mcmc_run_XX.py"
-    from mcmc_saves.mcmc_run_19 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    from mcmc_saves.mcmc_run_27 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     labels = list(params_initial.keys())
     
-    plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
+    # plot_chain(sampler, params=labels, burn=0, thin=1, title="All Samples")
     burn = 50
     plot_chain(sampler, params=labels, burn=burn, thin=1, title=f"First {burn} samples discarded")
 
