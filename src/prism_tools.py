@@ -169,7 +169,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs
             if (rundir / f"{run_name}_eid.txt").exists():
                 if verbose:
                     print(f"Reusing {rundir} / {run_name}_eid.txt...")
-                nu, eid, bf = np.loadtxt(rundir / f"{run_name}_eid.txt", unpack=True)
+                nu, eid = np.loadtxt(rundir / f"{run_name}_eid.txt", usecols=(0,1), unpack=True)
                 return nu, eid
 
     if not overwrite:
@@ -177,7 +177,7 @@ def reduced_model(tc, nc, rc, ts, ns, rhoR, carbonmix=None, corepsi="data/inputs
         if (directory / f"{run_name}_eid.txt").exists():
             if verbose:
                 print(f"{directory / run_name}_eid.txt exists - reusing...")
-            nu, eid, bf = np.loadtxt(directory / f"{run_name}_eid.txt", unpack=True)
+            nu, eid = np.loadtxt(directory / f"{run_name}_eid.txt", usecols=(0,1), unpack=True)
             return nu, eid
     
     attempts = 0

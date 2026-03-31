@@ -8,6 +8,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d
 
 calibration_table = {
+    "98252t3f1": [0., 107.7, 219.1, 302.7],
     "98252t4f2": [138., 247.0, 329.],  
     "98252t4f3": [144, 253, 333],  
     "98252t4f4": [134., 244.0, 329.],  
@@ -227,6 +228,15 @@ def apply_fitting_mask(xdata, ydata, fitting_mask):
     else:
         print("No fitting mask provided. Returning original data.")
         return ydata
+    
+def generate_gaussian_weights(xdata, centers=[3683, 3935], sigmas=[40, 40], baseline = 1, amplitude=10, n=2):
+    """
+    Generates Gaussian weights for given centers. The amplitude of the Gaussian is given by the `amplitude` parameter.
+    """
+    weights = np.full_like(xdata, fill_value=baseline)
+    for center, sigma in zip(centers, sigmas):
+        weights += amplitude * np.exp(-0.5 * ((xdata - center) / sigma)**n)
+    return weights
                 
 if __name__ == "__main__":
     from pathlib import Path

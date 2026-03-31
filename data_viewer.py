@@ -4,24 +4,27 @@ import matplotlib
 from pathlib import Path
 from matplotlib import pyplot as plt
 from scipy.optimize import minimize_scalar
-from src.spec import calibrate_x, get_ysigma, adjust_weights, gaussian_broadening
+from src.spec import calibrate_x, get_ysigma, adjust_weights, gaussian_broadening, load_srs3p2, calibration_table, generate_gaussian_weights
 from src.prism_tools import reduced_model
-from main import load_srs3p2, calibration_table, reducedchisquared
+from main import reducedchisquared
 matplotlib.rcParams.update({'font.size': 14})
 
-folder = Path("data/exp/98252_xrf4_Mar2026/")
-xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
-xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
-ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.3)
+folder = Path("data/exp/98252_xrf3_Mar2026/")
+xdata, ydata, ysigma = load_srs3p2(folder / "sis_f1/sis_f1_no_cr.txt")
+xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=calibration_table["98252t3f1"])
+# ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.3)
 fitting_mask   = [(3580,3750), (3830,4050),]
-
-if False:
+gauss_weights = generate_gaussian_weights(xdata, centers=[3665, 3930], sigmas=[60,80], amplitude=10, baseline=0.5, n=4)
+ysigma = ysigma / gauss_weights
+if True:
     fig, ax = plt.subplots()
     ax.plot(xdata, ydata, label="Frame 3")
     ax.fill_between(xdata, ydata-ysigma, ydata+ysigma, color="black", alpha=0.2, label="$\\sigma$ Frame 3")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Intensity (arb.)")
-
+    ax2 = ax.twinx()
+    ax2.plot(xdata, gauss_weights, label=f"Gaussian Weights", color="red", alpha=0.5)
+    ax2.set_ylabel("Weight")
     for low, high in fitting_mask:
         ax.axvspan(low, high, color="grey", alpha=0.1)
 
@@ -34,7 +37,7 @@ if False:
     ax.legend()
     plt.show()
 
-if True:
+if False:
     folder = Path("data/exp/98252_xrf4_Mar2026/")
     xdata, ydata, ysigma = load_srs3p2(folder / "sis_f3/sis_f3_no_cr.txt")
     xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=[0, 144, 253, 332])
