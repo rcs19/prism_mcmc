@@ -77,7 +77,7 @@ def log_probability(params, params_bounds, **likelihood_kwargs):
 
 if __name__ == "__main__":
     # 1. Load input deck ./data/inputs/mcmc_run_20.py
-    from data.inputs.mcmc_run_22 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    from mcmc_saves.mcmc_run_28 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
@@ -119,3 +119,4 @@ if __name__ == "__main__":
     # plot_chain(sampler, params=labels, burn=50, thin=1, title="Burned and thinned")
     burn = 0
     plot_all(directory, sampler, burn, params_initial, xdata, ydata, ysigma, weights, fitting_mask)
+    plt.show()
