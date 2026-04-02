@@ -202,3 +202,5 @@ data/lineratio/
 pyrightconfig.json
 mcmc_run_*/
 *.h5
+mcmc_run_*
+zip.bat
