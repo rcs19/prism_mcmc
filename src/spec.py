@@ -7,15 +7,6 @@ from scipy.signal import butter, filtfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d
 
-calibration_table = {
-    "98252t3f1": [0., 107.7, 219.1, 302.7],
-    "98252t4f2": [138., 247.0, 329.],  
-    "98252t4f3": [144, 253, 333],  
-    "98252t4f4": [134., 244.0, 329.],  
-    "98263t4f2": [142.2, 250, 330],
-    "98263t4f3": [142.2, 254, 339],
-}
-
 def load_srs3p2(filepath):
     """
     Load experimental data output by `srs3p2.pro`
