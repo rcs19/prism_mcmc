@@ -77,7 +77,7 @@ def log_probability(params, params_bounds, **likelihood_kwargs):
 
 if __name__ == "__main__":
     # 1. Load input deck ./data/inputs/mcmc_run_20.py
-    from mcmc_saves.mcmc_run_28 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    from mcmc_saves.mcmc_run_31 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
@@ -88,7 +88,8 @@ if __name__ == "__main__":
         ysigma = ysigma / gauss_weights
 
     # 2b. Initialise positions of walkers
-    pos = np.array([val for val in params_initial.values()]) + 0.01 * np.random.randn(nwalkers, len(params_initial)) # n walkers, n parameters (length of parameter dict), randomise initial positions slightly
+    initial_params = np.array(list(params_initial.values()))
+    pos = initial_params + 0.05 * initial_params * np.random.randn(nwalkers, len(initial_params))  # n walkers, n parameters, randomise initial positions by a fraction (e.g. 0.05) of each starting value
     nwalkers, ndim  = pos.shape
 
     # 2c. Initialise sampler with HDFBackend to save results to file

@@ -5,7 +5,8 @@ import emcee
 from matplotlib import pyplot as plt    
 from scipy.optimize import minimize_scalar  
 from pathlib import Path
-from src.spec import load_srs3p2, calibration_table, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask 
+from src.spec import load_srs3p2, gaussian_broadening, calibrate_x, adjust_weights, apply_fitting_mask 
+from src.calibration_table import ctable
 
 def plot_chain(sampler, params, burn=0, thin=1, title=""):
     samples = sampler.get_chain(discard=burn, thin=thin)

@@ -4,17 +4,21 @@ import matplotlib
 from pathlib import Path
 from matplotlib import pyplot as plt
 from scipy.optimize import minimize_scalar
-from src.spec import calibrate_x, get_ysigma, adjust_weights, gaussian_broadening, load_srs3p2, calibration_table, generate_gaussian_weights
+from src.spec import calibrate_x, get_ysigma, adjust_weights, gaussian_broadening, load_srs3p2, generate_gaussian_weights
 from src.prism_tools import reduced_model
+from src.calibration_table import ctable
 from main import reducedchisquared
+
 matplotlib.rcParams.update({'font.size': 14})
 
-folder = Path("data/exp/98252_xrf3_Mar2026/")
-xdata, ydata, ysigma = load_srs3p2(folder / "sis_f1/sis_f1_no_cr.txt")
-xdata = calibrate_x(ydata, ref_eV=[3420,3683,3934,4150], ref_idx=calibration_table["98252t3f1"])
+folder = Path("data/exp/98252_xrf4_Mar2026/")
+xdata, ydata, ysigma = load_srs3p2(folder / "srs_f3_an" / "srs_f3_an_SRS_1_no_cr.txt")
+xdata = calibrate_x(ydata, ref_eV=ctable["98252t4f3"][0], ref_idx=ctable["98252t4f3"][1])
 # ysigma = adjust_weights(xdata, ysigma, regions=[(np.min(xdata),4000)], multiplier=0.3)
-fitting_mask   = [(3580,3750), (3830,4050),]
-gauss_weights = generate_gaussian_weights(xdata, centers=[3665, 3930], sigmas=[60,80], amplitude=10, baseline=0.5, n=4)
+fitting_mask   = [(3540,3740), (3810,4000), (4050,4700)]
+# fitting_mask   = [(3400,4600),]
+# gauss_weights = generate_gaussian_weights(xdata, centers=[3650, 3900], sigmas=[60,70], amplitude=3, baseline=1, n=4)
+gauss_weights = np.ones_like(xdata)
 ysigma = ysigma / gauss_weights
 if True:
     fig, ax = plt.subplots()
