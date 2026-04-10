@@ -128,7 +128,7 @@ def gaussian_broadening(xdata, ydata, R):
     y_broadened = np.interp(logE, logE_uniform, y_broadened_uniform)
     return y_broadened
 
-def calibrate_x(ydata = None, ref_idx = None, ref_eV = None ):
+def calibrate_x(ydata = None, ref_eV = None, ref_idx = None):
     """
     Generate an xdata array for ydata and ydata sigma.
     """
