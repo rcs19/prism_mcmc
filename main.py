@@ -36,11 +36,11 @@ def log_likelihood(params, xdata, ydata, ysigma, corepsi, shellpsi, fitting_mask
     ts = ts_kev * 1e3
     
     if carbonmix is not None:
-        run_name = f"sample_{tc_kev:.3f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.2f}_{rhoR:.3f}"
+        run_name = f"sample_{tc_kev:.3f}_{lognc:.2f}_{carbonmix:.2f}_{ts_kev:.3f}_{rhoR:.3f}"
     else:
-        run_name = f"sample_{tc_kev:.3f}_{lognc:.2f}_{ts_kev:.2f}_{rhoR:.3f}"
+        run_name = f"sample_{tc_kev:.3f}_{lognc:.2f}_{ts_kev:.3f}_{rhoR:.3f}"
 
-    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=40e-4, ts=ts, ns=20, rhoR=rhoR, carbonmix=carbonmix,
+    xmodel, ymodel = reduced_model(tc=tc, nc=nc, rc=35e-4, ts=ts, ns=20, rhoR=rhoR, carbonmix=carbonmix,
                                    corepsi=corepsi, shellpsi=shellpsi,
                                    reuse_run=reuse_run, directory=directory, 
                                    run_name=run_name, 
@@ -77,7 +77,7 @@ def log_probability(params, params_bounds, **likelihood_kwargs):
 
 if __name__ == "__main__":
     # 1. Load input deck ./data/inputs/mcmc_run_20.py
-    from mcmc_saves.mcmc_run_31 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
+    from mcmc_saves.mcmc_run_36 import filepath, ref_eV, ref_idx, weights, params_initial, params_bounds, fitting_mask, nwalkers, nsteps, corepsi, shellpsi, directory, savefile, reuse_run, verbose
 
     # 2a. Load data
     xdata, ydata, ysigma = load_srs3p2(filepath)
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     # 2b. Initialise positions of walkers
     initial_params = np.array(list(params_initial.values()))
-    pos = initial_params + 0.05 * initial_params * np.random.randn(nwalkers, len(initial_params))  # n walkers, n parameters, randomise initial positions by a fraction (e.g. 0.05) of each starting value
+    pos = initial_params + 0.02 * initial_params * np.random.randn(nwalkers, len(initial_params))  # n walkers, n parameters, randomise initial positions by a fraction (e.g. 0.05) of each starting value
     nwalkers, ndim  = pos.shape
 
     # 2c. Initialise sampler with HDFBackend to save results to file
